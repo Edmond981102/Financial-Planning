@@ -26,11 +26,11 @@ export interface Subscription {
   name: string;
   amount: number;
   frequency: SubscriptionFrequency;
-  category: string;
   nextBillingDate: string;
   isActive: boolean;
   color: string;
   icon?: string;
+  endDate?: string; // last payment date, for installments / fixed-term plans like insurance
 }
 
 export type GoalCategory =

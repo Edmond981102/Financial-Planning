@@ -45,14 +45,14 @@ const SAMPLE_TRANSACTIONS: Transaction[] = [
 ];
 
 const SAMPLE_SUBSCRIPTIONS: Subscription[] = [
-  { id: 'sub-001', name: 'Netflix', amount: 15.99, frequency: 'monthly', category: 'Entertainment', nextBillingDate: '2026-07-05', isActive: true, color: '#E50914' },
-  { id: 'sub-002', name: 'Spotify', amount: 9.99, frequency: 'monthly', category: 'Entertainment', nextBillingDate: '2026-07-08', isActive: true, color: '#1DB954' },
-  { id: 'sub-003', name: 'Amazon Prime', amount: 14.99, frequency: 'monthly', category: 'Shopping', nextBillingDate: '2026-07-15', isActive: true, color: '#FF9900' },
-  { id: 'sub-004', name: 'Adobe Creative', amount: 54.99, frequency: 'monthly', category: 'Work', nextBillingDate: '2026-07-01', isActive: true, color: '#FF0000' },
-  { id: 'sub-005', name: 'iCloud 200GB', amount: 2.99, frequency: 'monthly', category: 'Utilities', nextBillingDate: '2026-07-20', isActive: true, color: '#007AFF' },
-  { id: 'sub-006', name: 'Gym Membership', amount: 49.99, frequency: 'monthly', category: 'Health', nextBillingDate: '2026-07-01', isActive: true, color: '#10b981' },
-  { id: 'sub-007', name: 'ChatGPT Plus', amount: 20, frequency: 'monthly', category: 'Productivity', nextBillingDate: '2026-07-12', isActive: true, color: '#74aa9c' },
-  { id: 'sub-008', name: 'LinkedIn Premium', amount: 39.99, frequency: 'monthly', category: 'Professional', nextBillingDate: '2026-07-03', isActive: false, color: '#0A66C2' },
+  { id: 'sub-001', name: 'Netflix', amount: 15.99, frequency: 'monthly', nextBillingDate: '2026-07-05', isActive: true, color: '#E50914' },
+  { id: 'sub-002', name: 'Spotify', amount: 9.99, frequency: 'monthly', nextBillingDate: '2026-07-08', isActive: true, color: '#1DB954' },
+  { id: 'sub-003', name: 'Amazon Prime', amount: 14.99, frequency: 'monthly', nextBillingDate: '2026-07-15', isActive: true, color: '#FF9900' },
+  { id: 'sub-004', name: 'Adobe Creative', amount: 54.99, frequency: 'monthly', nextBillingDate: '2026-07-01', isActive: true, color: '#FF0000' },
+  { id: 'sub-005', name: 'iCloud 200GB', amount: 2.99, frequency: 'monthly', nextBillingDate: '2026-07-20', isActive: true, color: '#007AFF' },
+  { id: 'sub-006', name: 'Gym Membership', amount: 49.99, frequency: 'monthly', nextBillingDate: '2026-07-01', isActive: true, color: '#10b981' },
+  { id: 'sub-007', name: 'ChatGPT Plus', amount: 20, frequency: 'monthly', nextBillingDate: '2026-07-12', isActive: true, color: '#74aa9c' },
+  { id: 'sub-008', name: 'LinkedIn Premium', amount: 39.99, frequency: 'monthly', nextBillingDate: '2026-07-03', isActive: false, color: '#0A66C2' },
 ];
 
 const SAMPLE_GOALS: SavingsGoal[] = [

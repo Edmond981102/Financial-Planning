@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency } from '../utils/formatters';
 import { getMonthExpenses, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
@@ -26,6 +26,8 @@ export default function Budget() {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [editMode, setEditMode] = useState(false);
   const [draftBudget, setDraftBudget] = useState<Record<string, string>>({});
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatAmount, setNewCatAmount] = useState('');
 
   const currentBudget = useMemo(
     () => budgets.find(b => b.month === selectedMonth),
@@ -68,6 +70,22 @@ export default function Budget() {
     });
     setBudget({ month: selectedMonth, categories });
     setEditMode(false);
+  }
+
+  function addCategory() {
+    const name = newCatName.trim();
+    if (!name || draftBudget[name] !== undefined) return;
+    setDraftBudget(d => ({ ...d, [name]: newCatAmount || '0' }));
+    setNewCatName('');
+    setNewCatAmount('');
+  }
+
+  function removeCategory(category: string) {
+    setDraftBudget(d => {
+      const next = { ...d };
+      delete next[category];
+      return next;
+    });
   }
 
   const lastThreeMonths = Array.from({ length: 4 }, (_, i) => {
@@ -150,7 +168,8 @@ export default function Budget() {
       <div className="card">
         <h2 className="text-sm font-semibold text-white mb-4">Category Breakdown</h2>
         <div className="space-y-3">
-          {Object.entries(budgetCategories).map(([category, budget]) => {
+          {(editMode ? Object.keys(draftBudget) : Object.keys(budgetCategories)).map((category) => {
+            const budget = editMode ? (parseFloat(draftBudget[category]) || 0) : budgetCategories[category];
             const actual = actualByCategory[category] || 0;
             const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
             const over = actual > budget;
@@ -186,6 +205,11 @@ export default function Budget() {
                     <span className={`text-xs w-24 text-right ${remaining < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                       {remaining < 0 ? `-${formatCurrency(Math.abs(remaining))}` : `${formatCurrency(remaining)} left`}
                     </span>
+                    {editMode && (
+                      <button onClick={() => removeCategory(category)} className="p-1 rounded-lg hover:bg-rose-500/15 text-slate-500 hover:text-rose-400 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -200,6 +224,28 @@ export default function Budget() {
               </div>
             );
           })}
+
+          {editMode && (
+            <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+              <input
+                type="text"
+                placeholder="New category name"
+                className="input flex-1 py-1.5 text-sm"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="Amount"
+                className="input w-28 py-1.5 text-sm"
+                value={newCatAmount}
+                onChange={e => setNewCatAmount(e.target.value)}
+              />
+              <button onClick={addCategory} className="btn-secondary py-1.5 px-3 flex items-center gap-1.5 shrink-0">
+                <Plus size={13} /> Add
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
