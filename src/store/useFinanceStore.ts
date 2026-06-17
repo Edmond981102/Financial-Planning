@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Transaction, Subscription, SavingsGoal, MonthlyBudget, Investment, UserProfile } from '../types';
+import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, Investment, UserProfile, SubscriptionFrequency } from '../types';
+import { addWeeks, addMonths, addYears, format, parseISO, isAfter, startOfDay } from 'date-fns';
+
+function advanceBillingDate(date: Date, frequency: SubscriptionFrequency): Date {
+  switch (frequency) {
+    case 'weekly': return addWeeks(date, 1);
+    case 'monthly': return addMonths(date, 1);
+    case 'yearly': return addYears(date, 1);
+  }
+}
 
 const SAMPLE_TRANSACTIONS: Transaction[] = [
   // April 2026
@@ -45,14 +54,14 @@ const SAMPLE_TRANSACTIONS: Transaction[] = [
 ];
 
 const SAMPLE_SUBSCRIPTIONS: Subscription[] = [
-  { id: 'sub-001', name: 'Netflix', amount: 15.99, frequency: 'monthly', nextBillingDate: '2026-07-05', isActive: true, color: '#E50914' },
-  { id: 'sub-002', name: 'Spotify', amount: 9.99, frequency: 'monthly', nextBillingDate: '2026-07-08', isActive: true, color: '#1DB954' },
-  { id: 'sub-003', name: 'Amazon Prime', amount: 14.99, frequency: 'monthly', nextBillingDate: '2026-07-15', isActive: true, color: '#FF9900' },
-  { id: 'sub-004', name: 'Adobe Creative', amount: 54.99, frequency: 'monthly', nextBillingDate: '2026-07-01', isActive: true, color: '#FF0000' },
-  { id: 'sub-005', name: 'iCloud 200GB', amount: 2.99, frequency: 'monthly', nextBillingDate: '2026-07-20', isActive: true, color: '#007AFF' },
-  { id: 'sub-006', name: 'Gym Membership', amount: 49.99, frequency: 'monthly', nextBillingDate: '2026-07-01', isActive: true, color: '#10b981' },
-  { id: 'sub-007', name: 'ChatGPT Plus', amount: 20, frequency: 'monthly', nextBillingDate: '2026-07-12', isActive: true, color: '#74aa9c' },
-  { id: 'sub-008', name: 'LinkedIn Premium', amount: 39.99, frequency: 'monthly', nextBillingDate: '2026-07-03', isActive: false, color: '#0A66C2' },
+  { id: 'sub-001', name: 'Netflix', amount: 15.99, frequency: 'monthly', nextBillingDate: '2026-07-05', isActive: true, color: '#E50914', paymentMethod: 'auto' },
+  { id: 'sub-002', name: 'Spotify', amount: 9.99, frequency: 'monthly', nextBillingDate: '2026-07-08', isActive: true, color: '#1DB954', paymentMethod: 'auto' },
+  { id: 'sub-003', name: 'Amazon Prime', amount: 14.99, frequency: 'monthly', nextBillingDate: '2026-07-15', isActive: true, color: '#FF9900', paymentMethod: 'auto' },
+  { id: 'sub-004', name: 'Adobe Creative', amount: 54.99, frequency: 'monthly', nextBillingDate: '2026-07-01', isActive: true, color: '#FF0000', paymentMethod: 'manual' },
+  { id: 'sub-005', name: 'iCloud 200GB', amount: 2.99, frequency: 'monthly', nextBillingDate: '2026-07-20', isActive: true, color: '#007AFF', paymentMethod: 'auto' },
+  { id: 'sub-006', name: 'Gym Membership', amount: 49.99, frequency: 'monthly', nextBillingDate: '2026-07-01', isActive: true, color: '#10b981', paymentMethod: 'manual' },
+  { id: 'sub-007', name: 'ChatGPT Plus', amount: 20, frequency: 'monthly', nextBillingDate: '2026-07-12', isActive: true, color: '#74aa9c', paymentMethod: 'auto' },
+  { id: 'sub-008', name: 'LinkedIn Premium', amount: 39.99, frequency: 'monthly', nextBillingDate: '2026-07-03', isActive: false, color: '#0A66C2', paymentMethod: 'manual' },
 ];
 
 const SAMPLE_GOALS: SavingsGoal[] = [
@@ -62,25 +71,22 @@ const SAMPLE_GOALS: SavingsGoal[] = [
   { id: 'goal-004', name: 'House Down Payment', targetAmount: 80000, currentAmount: 28000, targetDate: '2029-01-01', category: 'home', color: '#10b981', monthlyContribution: 1500 },
 ];
 
-const SAMPLE_BUDGETS: MonthlyBudget[] = [
-  {
-    month: '2026-06',
-    categories: {
-      'Housing': 1500,
-      'Food & Dining': 500,
-      'Transport': 150,
-      'Health': 200,
-      'Entertainment': 100,
-      'Shopping': 200,
-      'Utilities': 120,
-      'Personal Care': 80,
-      'Education': 100,
-      'Gifts & Donations': 50,
-      'Subscriptions': 200,
-      'Other': 100,
-    },
-  },
-];
+// The budget template applies to the current month and all future months.
+// Past months are frozen into `budgetHistory` snapshots and never affected by later template edits.
+const SAMPLE_BUDGET_TEMPLATE: CategoryBudget = {
+  'Housing': 1500,
+  'Food & Dining': 500,
+  'Transport': 150,
+  'Health': 200,
+  'Entertainment': 100,
+  'Shopping': 200,
+  'Utilities': 120,
+  'Personal Care': 80,
+  'Education': 100,
+  'Gifts & Donations': 50,
+  'Subscriptions': 200,
+  'Other': 100,
+};
 
 const SAMPLE_INVESTMENTS: Investment[] = [
   { id: 'inv-001', name: 'S&P 500 ETF (VOO)', type: 'etf', ticker: 'VOO', units: 20, buyPrice: 420, currentPrice: 485, purchaseDate: '2024-03-15', color: '#3b82f6' },
@@ -106,7 +112,9 @@ interface FinanceStore {
   transactions: Transaction[];
   subscriptions: Subscription[];
   savingsGoals: SavingsGoal[];
-  budgets: MonthlyBudget[];
+  budgetTemplate: CategoryBudget;
+  budgetTemplateMonth: string; // YYYY-MM the template currently represents "live" (current real month last synced)
+  budgetHistory: MonthlyBudget[]; // frozen snapshots for months that have already passed
   investments: Investment[];
   profile: UserProfile;
   activeView: string;
@@ -120,13 +128,15 @@ interface FinanceStore {
   addSubscription: (s: Omit<Subscription, 'id'>) => void;
   updateSubscription: (id: string, updates: Partial<Subscription>) => void;
   deleteSubscription: (id: string) => void;
+  processAutoSubscriptions: () => void;
 
   addSavingsGoal: (g: Omit<SavingsGoal, 'id'>) => void;
   updateSavingsGoal: (id: string, updates: Partial<SavingsGoal>) => void;
   deleteSavingsGoal: (id: string) => void;
   addFundsToGoal: (id: string, amount: number) => void;
 
-  setBudget: (budget: MonthlyBudget) => void;
+  updateBudgetTemplate: (categories: CategoryBudget) => void;
+  checkBudgetRollover: () => void;
 
   addInvestment: (inv: Omit<Investment, 'id'>) => void;
   updateInvestment: (id: string, updates: Partial<Investment>) => void;
@@ -141,7 +151,9 @@ export const useFinanceStore = create<FinanceStore>()(
       transactions: SAMPLE_TRANSACTIONS,
       subscriptions: SAMPLE_SUBSCRIPTIONS,
       savingsGoals: SAMPLE_GOALS,
-      budgets: SAMPLE_BUDGETS,
+      budgetTemplate: SAMPLE_BUDGET_TEMPLATE,
+      budgetTemplateMonth: format(new Date(), 'yyyy-MM'),
+      budgetHistory: [],
       investments: SAMPLE_INVESTMENTS,
       profile: SAMPLE_PROFILE,
       activeView: 'dashboard',
@@ -181,6 +193,47 @@ export const useFinanceStore = create<FinanceStore>()(
           subscriptions: state.subscriptions.filter((s) => s.id !== id),
         })),
 
+      processAutoSubscriptions: () =>
+        set((state) => {
+          const today = startOfDay(new Date());
+          const newTransactions: Transaction[] = [];
+
+          const updatedSubscriptions = state.subscriptions.map((sub) => {
+            if (!sub.isActive || sub.paymentMethod !== 'auto') return sub;
+
+            let billingDate = parseISO(sub.nextBillingDate);
+            let safety = 0;
+            while (!isAfter(billingDate, today) && safety < 36) {
+              if (sub.endDate && isAfter(billingDate, parseISO(sub.endDate))) break;
+              const billingDateStr = format(billingDate, 'yyyy-MM-dd');
+              newTransactions.push({
+                id: `tx-auto-${sub.id}-${billingDateStr}`,
+                date: billingDateStr,
+                amount: sub.amount,
+                category: 'Subscriptions',
+                description: sub.name,
+                type: 'expense',
+              });
+              billingDate = advanceBillingDate(billingDate, sub.frequency);
+              safety++;
+            }
+
+            const nextBillingDate = format(billingDate, 'yyyy-MM-dd');
+            return nextBillingDate === sub.nextBillingDate ? sub : { ...sub, nextBillingDate };
+          });
+
+          if (newTransactions.length === 0) return {};
+
+          const existingIds = new Set(state.transactions.map((t) => t.id));
+          const dedupedNew = newTransactions.filter((t) => !existingIds.has(t.id));
+          if (dedupedNew.length === 0) return { subscriptions: updatedSubscriptions };
+
+          return {
+            subscriptions: updatedSubscriptions,
+            transactions: [...dedupedNew, ...state.transactions],
+          };
+        }),
+
       addSavingsGoal: (g) =>
         set((state) => ({
           savingsGoals: [...state.savingsGoals, { ...g, id: `goal-${Date.now()}` }],
@@ -204,13 +257,27 @@ export const useFinanceStore = create<FinanceStore>()(
           ),
         })),
 
-      setBudget: (budget) =>
-        set((state) => ({
-          budgets: [
-            ...state.budgets.filter((b) => b.month !== budget.month),
-            budget,
-          ],
-        })),
+      updateBudgetTemplate: (categories) =>
+        set(() => ({ budgetTemplate: categories })),
+
+      checkBudgetRollover: () =>
+        set((state) => {
+          const currentMonth = format(new Date(), 'yyyy-MM');
+          if (state.budgetTemplateMonth >= currentMonth) return {};
+
+          const history = [...state.budgetHistory];
+          let month = state.budgetTemplateMonth;
+          let safety = 0;
+          while (month < currentMonth && safety < 600) {
+            if (!history.some((b) => b.month === month)) {
+              history.push({ month, categories: state.budgetTemplate });
+            }
+            month = format(addMonths(parseISO(month + '-01'), 1), 'yyyy-MM');
+            safety++;
+          }
+
+          return { budgetHistory: history, budgetTemplateMonth: currentMonth };
+        }),
 
       addInvestment: (inv) =>
         set((state) => ({

@@ -20,6 +20,7 @@ export interface Transaction {
 }
 
 export type SubscriptionFrequency = 'weekly' | 'monthly' | 'yearly';
+export type SubscriptionPaymentMethod = 'auto' | 'manual';
 
 export interface Subscription {
   id: string;
@@ -31,6 +32,7 @@ export interface Subscription {
   color: string;
   icon?: string;
   endDate?: string; // last payment date, for installments / fixed-term plans like insurance
+  paymentMethod?: SubscriptionPaymentMethod; // 'auto' creates an expense transaction automatically when due
 }
 
 export type GoalCategory =

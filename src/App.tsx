@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { useFinanceStore } from './store/useFinanceStore';
 import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
+import Expenses from './pages/Expenses';
 import Budget from './pages/Budget';
 import Subscriptions from './pages/Subscriptions';
 import Savings from './pages/Savings';
@@ -12,6 +14,7 @@ import Insights from './pages/Insights';
 const PAGES: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
   transactions: Transactions,
+  expenses: Expenses,
   budget: Budget,
   subscriptions: Subscriptions,
   savings: Savings,
@@ -22,7 +25,14 @@ const PAGES: Record<string, React.ComponentType> = {
 
 export default function App() {
   const activeView = useFinanceStore((s) => s.activeView);
+  const processAutoSubscriptions = useFinanceStore((s) => s.processAutoSubscriptions);
+  const checkBudgetRollover = useFinanceStore((s) => s.checkBudgetRollover);
   const PageComponent = PAGES[activeView] || Dashboard;
+
+  useEffect(() => {
+    processAutoSubscriptions();
+    checkBudgetRollover();
+  }, [processAutoSubscriptions, checkBudgetRollover]);
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, X, Check, Power, Calendar, Upload, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, Power, Calendar, Upload, CheckCircle2, Zap, Hand } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { getMonthlyAmount } from '../utils/calculations';
-import { Subscription, SubscriptionFrequency } from '../types';
+import { Subscription, SubscriptionFrequency, SubscriptionPaymentMethod } from '../types';
 import { differenceInDays, parseISO, isBefore, startOfDay, format } from 'date-fns';
 import { guessLogoUrl } from '../utils/logos';
 
@@ -21,6 +21,7 @@ interface SubForm {
   isActive: boolean;
   icon?: string;
   endDate: string;
+  paymentMethod: SubscriptionPaymentMethod;
 }
 
 const emptyForm: SubForm = {
@@ -32,6 +33,7 @@ const emptyForm: SubForm = {
   isActive: true,
   icon: undefined,
   endDate: '',
+  paymentMethod: 'manual',
 };
 
 function isEnded(sub: Subscription): boolean {
@@ -89,6 +91,7 @@ export default function Subscriptions() {
       isActive: sub.isActive,
       icon: sub.icon,
       endDate: sub.endDate || '',
+      paymentMethod: sub.paymentMethod || 'manual',
     });
     setEditId(sub.id);
     setShowModal(true);
@@ -113,6 +116,7 @@ export default function Subscriptions() {
       isActive: form.isActive,
       icon: form.icon,
       endDate: form.endDate || undefined,
+      paymentMethod: form.paymentMethod,
     };
     if (editId) {
       updateSubscription(editId, payload);
@@ -182,6 +186,14 @@ export default function Subscriptions() {
                       <Calendar size={11} />
                       {days <= 0 ? 'Due today' : `${days}d left`}
                     </div>
+                  </div>
+                  <div className="mt-1.5">
+                    <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 w-fit ${
+                      sub.paymentMethod === 'auto' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {sub.paymentMethod === 'auto' ? <Zap size={10} /> : <Hand size={10} />}
+                      {sub.paymentMethod === 'auto' ? 'Auto-pay' : 'Manual'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -299,6 +311,30 @@ export default function Subscriptions() {
                 </div>
               </div>
               <p className="text-xs text-slate-500 -mt-2">Set an end date for installments (e.g. phone plans) or fixed-term plans like insurance. Leave blank for ongoing subscriptions.</p>
+              <div>
+                <label className="label">Payment Method</label>
+                <div className="flex rounded-xl overflow-hidden border border-slate-700 p-1 gap-1">
+                  {(['manual', 'auto'] as const).map(method => (
+                    <button
+                      key={method}
+                      onClick={() => setForm(f => ({ ...f, paymentMethod: method }))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors flex items-center justify-center gap-1.5 ${
+                        form.paymentMethod === method
+                          ? 'bg-emerald-500 text-white'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {method === 'auto' ? <Zap size={13} /> : <Hand size={13} />}
+                      {method === 'auto' ? 'Auto-pay' : 'Manual'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-1.5">
+                  {form.paymentMethod === 'auto'
+                    ? 'An expense transaction will be created automatically each time this bill is due.'
+                    : "You'll add the expense transaction yourself when you pay."}
+                </p>
+              </div>
               <div>
                 <label className="label">Icon</label>
                 <div className="flex items-center gap-3">

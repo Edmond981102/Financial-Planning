@@ -1,12 +1,13 @@
 import {
   LayoutDashboard, ArrowLeftRight, PieChart, CreditCard,
-  Target, TrendingUp, Map, Lightbulb, Settings, Wallet
+  Target, TrendingUp, Map, Lightbulb, Settings, Wallet, Receipt
 } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
+  { id: 'expenses', label: 'Expenses', icon: Receipt },
   { id: 'budget', label: 'Budget', icon: PieChart },
   { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
   { id: 'savings', label: 'Savings Goals', icon: Target },

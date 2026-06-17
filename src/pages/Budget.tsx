@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency } from '../utils/formatters';
 import { getMonthExpenses, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
@@ -22,19 +22,26 @@ const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
 };
 
 export default function Budget() {
-  const { transactions, budgets, setBudget } = useFinanceStore();
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const { transactions, budgetTemplate, budgetHistory, updateBudgetTemplate } = useFinanceStore();
+  const currentRealMonth = format(new Date(), 'yyyy-MM');
+  const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
   const [editMode, setEditMode] = useState(false);
   const [draftBudget, setDraftBudget] = useState<Record<string, string>>({});
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
 
-  const currentBudget = useMemo(
-    () => budgets.find(b => b.month === selectedMonth),
-    [budgets, selectedMonth]
+  const isPastMonth = selectedMonth < currentRealMonth;
+
+  const historicalBudget = useMemo(
+    () => budgetHistory.find(b => b.month === selectedMonth),
+    [budgetHistory, selectedMonth]
   );
 
-  const budgetCategories = currentBudget?.categories || DEFAULT_BUDGET_CATEGORIES;
+  // Past months use a frozen snapshot so later template edits never rewrite history.
+  // Current/future months always reflect the live shared template.
+  const budgetCategories = isPastMonth
+    ? historicalBudget?.categories || budgetTemplate || DEFAULT_BUDGET_CATEGORIES
+    : Object.keys(budgetTemplate).length > 0 ? budgetTemplate : DEFAULT_BUDGET_CATEGORIES;
 
   const actualByCategory = useMemo(() => {
     const txns = getMonthTransactions(transactions, selectedMonth);
@@ -68,7 +75,7 @@ export default function Budget() {
       const val = parseFloat(v);
       if (!isNaN(val) && val >= 0) categories[k] = val;
     });
-    setBudget({ month: selectedMonth, categories });
+    updateBudgetTemplate(categories);
     setEditMode(false);
   }
 
@@ -98,16 +105,22 @@ export default function Budget() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Budget Planner</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Set limits, track spending</p>
+          <p className="text-slate-400 text-sm mt-0.5">
+            {isPastMonth ? 'Viewing a past, locked budget' : 'Set limits — changes apply to this month and onward'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <input
             type="month"
             className="input w-44"
             value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
+            onChange={e => { setSelectedMonth(e.target.value); setEditMode(false); }}
           />
-          {editMode ? (
+          {isPastMonth ? (
+            <span className="text-xs text-slate-500 flex items-center gap-1.5 px-3 py-2 bg-slate-800 rounded-xl">
+              <Lock size={13} /> Past months are locked
+            </span>
+          ) : editMode ? (
             <div className="flex gap-2">
               <button onClick={() => setEditMode(false)} className="btn-secondary flex items-center gap-1.5"><X size={14} /> Cancel</button>
               <button onClick={saveBudget} className="btn-primary flex items-center gap-1.5"><Check size={14} /> Save</button>
