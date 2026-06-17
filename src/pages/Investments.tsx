@@ -1,10 +1,40 @@
 import { useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
 import { getTotalInvestmentValue, getTotalInvestmentCost, getInvestmentReturn } from '../utils/calculations';
 import { Investment, InvestmentType } from '../types';
+
+// Real holdings extracted from StashAway (May 2026 statement), Tiger Brokers
+// (Jan-Jun 2026 activity statement, SGD positions converted to USD at the
+// statement's 0.7799 SGD->USD rate), and Coinbase (XRP buy on 5 Feb 2026).
+const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
+  // StashAway Flexible Portfolio (reported natively in USD)
+  { name: 'First Trust NASDAQ Clean Edge Smart Grid Infrastructure (GRID)', ticker: 'GRID', type: 'etf', units: 6.4707, buyPrice: 190.99, currentPrice: 193.07, purchaseDate: '2026-05-01', color: '#10b981', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement (no full lifetime cost basis available).' },
+  { name: 'Consumer Discretionary Select Sector SPDR (XLY)', ticker: 'XLY', type: 'etf', units: 3.1296, buyPrice: 118.37, currentPrice: 120.87, purchaseDate: '2026-05-01', color: '#3b82f6', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'VanEck Environmental Services ETF (EVX)', ticker: 'EVX', type: 'etf', units: 28.0577, buyPrice: 40.52, currentPrice: 38.83, purchaseDate: '2026-05-01', color: '#f59e0b', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'VanEck Semiconductor ETF (SMH)', ticker: 'SMH', type: 'etf', units: 2.0157, buyPrice: 492.74, currentPrice: 598.93, purchaseDate: '2026-05-01', color: '#8b5cf6', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'First Trust Water ETF (FIW)', ticker: 'FIW', type: 'etf', units: 7.0031, buyPrice: 106.99, currentPrice: 103.74, purchaseDate: '2026-05-01', color: '#06b6d4', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'SPDR Gold MiniShares Trust (GLDM)', ticker: 'GLDM', type: 'etf', units: 11.7943, buyPrice: 91.44, currentPrice: 89.93, purchaseDate: '2026-05-01', color: '#ef4444', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'iShares Global Healthcare ETF (IXJ)', ticker: 'IXJ', type: 'etf', units: 8.0062, buyPrice: 92.84, currentPrice: 94.50, purchaseDate: '2026-05-01', color: '#ec4899', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'iShares US Aggregate Bond UCITS ETF (IUAG)', ticker: 'IUAG', type: 'etf', units: 3.9254, buyPrice: 94.84, currentPrice: 93.31, purchaseDate: '2026-05-01', color: '#84cc16', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'iShares Core S&P 500 ETF (IVV)', ticker: 'IVV', type: 'etf', units: 0.9254, buyPrice: 722.09, currentPrice: 760.05, purchaseDate: '2026-05-01', color: '#10b981', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  // Tiger Brokers - unit trusts (originally priced in SGD, converted to USD)
+  { name: 'Eastspring Japan Dynamic AS (SGDHDG)', type: 'mutual_fund', units: 200.638, buyPrice: 25.65, currentPrice: 43.15, purchaseDate: '2026-01-06', color: '#3b82f6', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$32.89, current S$55.32/unit).' },
+  { name: 'Schroder ISF Global Gold A (SGDHDG)', type: 'mutual_fund', units: 4.17, buyPrice: 261.48, currentPrice: 385.14, purchaseDate: '2026-01-01', color: '#f59e0b', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$335.27, current S$493.83/unit).' },
+  { name: 'Abrdn Global Technology (SGD)', type: 'mutual_fund', units: 2936.34, buyPrice: 1.59, currentPrice: 2.39, purchaseDate: '2026-01-05', color: '#8b5cf6', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$2.04, current S$3.06/unit).' },
+  { name: 'UOB United e-Commerce (SGD)', type: 'mutual_fund', units: 6458.26, buyPrice: 0.82, currentPrice: 1.30, purchaseDate: '2026-01-05', color: '#06b6d4', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$1.05, current S$1.66/unit).' },
+  { name: 'LionGlobal Singapore Trust (SGD)', type: 'mutual_fund', units: 199.58, buyPrice: 4.30, currentPrice: 5.24, purchaseDate: '2026-01-01', color: '#ec4899', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$5.51, current S$6.72/unit).' },
+  // Tiger Brokers - stocks
+  { name: 'WinkingStudios', ticker: 'WKS.SI', type: 'stock', units: 200, buyPrice: 0.16, currentPrice: 0.17, purchaseDate: '2026-01-01', color: '#84cc16', notes: 'Tiger Brokers stock. Originally priced in SGD (cost S$0.21, current S$0.215).' },
+  { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 299.24, purchaseDate: '2026-01-02', color: '#6366f1' },
+  { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.08702, buyPrice: 229.78, currentPrice: 278.67, purchaseDate: '2026-05-20', color: '#ef4444' },
+  { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 123.76, currentPrice: 207.41, purchaseDate: '2026-01-02', color: '#10b981' },
+  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 206.96, currentPrice: 201.80, purchaseDate: '2026-06-16', color: '#3b82f6' },
+  // Coinbase - crypto
+  { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.25, purchaseDate: '2026-02-05', color: '#f59e0b', notes: 'Bought via Coinbase for S$500.' },
+];
 
 const TYPE_LABELS: Record<InvestmentType, string> = {
   stock: 'Stock', etf: 'ETF', crypto: 'Crypto', mutual_fund: 'Mutual Fund',
@@ -33,6 +63,8 @@ export default function Investments() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<InvForm>(emptyForm);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [replaceExisting, setReplaceExisting] = useState(true);
 
   const totalValue = getTotalInvestmentValue(investments);
   const totalCost = getTotalInvestmentCost(investments);
@@ -85,6 +117,14 @@ export default function Investments() {
     setShowModal(false);
   }
 
+  function handleImport() {
+    if (replaceExisting) {
+      investments.forEach(inv => deleteInvestment(inv.id));
+    }
+    REAL_HOLDINGS.forEach(h => addInvestment(h));
+    setShowImportModal(false);
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -92,9 +132,14 @@ export default function Investments() {
           <h1 className="text-2xl font-bold text-white">Investment Portfolio</h1>
           <p className="text-slate-400 text-sm mt-0.5">Track your wealth growth</p>
         </div>
-        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Add Investment
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowImportModal(true)} className="btn-secondary flex items-center gap-2">
+            <Download size={16} /> Import My Holdings
+          </button>
+          <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> Add Investment
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -238,6 +283,31 @@ export default function Investments() {
           </tbody>
         </table>
       </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md mx-4 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">Import My Holdings</h2>
+              <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-slate-400 mb-4">
+              This will add your {REAL_HOLDINGS.length} real holdings from StashAway, Tiger Brokers, and Coinbase (XRP) into your portfolio.
+            </p>
+            <label className="flex items-center gap-2 text-sm text-slate-300 mb-5 cursor-pointer">
+              <input type="checkbox" checked={replaceExisting} onChange={e => setReplaceExisting(e.target.checked)} className="w-4 h-4" />
+              Remove the {investments.length} existing investment(s) first
+            </label>
+            <div className="flex gap-3">
+              <button onClick={() => setShowImportModal(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={handleImport} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                <Download size={15} /> Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
