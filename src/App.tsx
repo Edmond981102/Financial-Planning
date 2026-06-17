@@ -3,7 +3,6 @@ import { useFinanceStore } from './store/useFinanceStore';
 import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
-import Expenses from './pages/Expenses';
 import Budget from './pages/Budget';
 import Subscriptions from './pages/Subscriptions';
 import Savings from './pages/Savings';
@@ -14,7 +13,6 @@ import Insights from './pages/Insights';
 const PAGES: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
   transactions: Transactions,
-  expenses: Expenses,
   budget: Budget,
   subscriptions: Subscriptions,
   savings: Savings,
