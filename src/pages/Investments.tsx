@@ -33,7 +33,7 @@ const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
   { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 123.76, currentPrice: 207.41, purchaseDate: '2026-01-02', color: '#10b981' },
   { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 206.96, currentPrice: 201.80, purchaseDate: '2026-06-16', color: '#3b82f6' },
   // Coinbase - crypto
-  { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.22, purchaseDate: '2026-02-05', color: '#f59e0b', notes: 'Bought via Coinbase for S$500. Price updated 2026-06-18; check Coinbase for the latest.' },
+  { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.21, purchaseDate: '2026-02-05', color: '#f59e0b', notes: 'Bought via Coinbase for S$500. Price from Coinbase, updated 2026-06-18 — check Coinbase for the latest.' },
 ];
 
 const TYPE_LABELS: Record<InvestmentType, string> = {
