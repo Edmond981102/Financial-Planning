@@ -90,32 +90,55 @@ export default function Investments() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [stockSyncing, setStockSyncing] = useState(false);
+  const [stockSyncError, setStockSyncError] = useState('');
+  const [stockLastSynced, setStockLastSynced] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    investments.forEach(inv => {
-      if (!inv.autoInvest) return;
-      const cfg = inv.autoInvest;
-      let units = inv.units;
-      let buyPrice = inv.buyPrice;
-      let lastApplied = cfg.lastAppliedDate;
-      let changed = false;
-      let next = nextAutoInvestOccurrence(new Date(cfg.lastAppliedDate), cfg);
-      while (next <= today) {
-        const addedUnits = cfg.amountUsd / inv.currentPrice;
-        const newUnits = units + addedUnits;
-        buyPrice = (units * buyPrice + addedUnits * inv.currentPrice) / newUnits;
-        units = newUnits;
-        lastApplied = next.toISOString().slice(0, 10);
-        changed = true;
-        next = nextAutoInvestOccurrence(next, cfg);
+    async function syncAutoInvest() {
+      const dueList = investments.filter(inv => inv.autoInvest);
+      if (dueList.length === 0) return;
+
+      // Fetch today's live price for these tickers so auto-invest contributions
+      // (and the displayed P&L) use real market prices, not a stale stored value.
+      const tickers = Array.from(new Set(dueList.map(inv => inv.ticker).filter(Boolean))) as string[];
+      let livePrices: Record<string, number> = {};
+      if (tickers.length > 0) {
+        try {
+          const res = await fetch(`/api/quote?symbols=${tickers.map(encodeURIComponent).join(',')}`);
+          if (res.ok) livePrices = await res.json();
+        } catch {
+          // fall back to each holding's stored currentPrice if the price service is unreachable
+        }
       }
-      if (changed) {
-        updateInvestment(inv.id, { units, buyPrice, autoInvest: { ...cfg, lastAppliedDate: lastApplied } });
-      }
-    });
-  }, [investments, updateInvestment]);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      dueList.forEach(inv => {
+        const cfg = inv.autoInvest!;
+        const price = (inv.ticker && livePrices[inv.ticker]) || inv.currentPrice;
+        let units = inv.units;
+        let buyPrice = inv.buyPrice;
+        let lastApplied = cfg.lastAppliedDate;
+        let changed = price !== inv.currentPrice;
+        let next = nextAutoInvestOccurrence(new Date(cfg.lastAppliedDate), cfg);
+        while (next <= today) {
+          const addedUnits = cfg.amountUsd / price;
+          const newUnits = units + addedUnits;
+          buyPrice = (units * buyPrice + addedUnits * price) / newUnits;
+          units = newUnits;
+          lastApplied = next.toISOString().slice(0, 10);
+          changed = true;
+          next = nextAutoInvestOccurrence(next, cfg);
+        }
+        if (changed) {
+          updateInvestment(inv.id, { units, buyPrice, currentPrice: price, autoInvest: { ...cfg, lastAppliedDate: lastApplied } });
+        }
+      });
+    }
+    syncAutoInvest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalValue = getTotalInvestmentValue(investments);
   const totalCost = getTotalInvestmentCost(investments);
@@ -193,6 +216,34 @@ export default function Investments() {
     }
   }
 
+  async function handleSyncStocks() {
+    const stockHoldings = investments.filter(inv => (inv.type === 'stock' || inv.type === 'etf') && inv.ticker);
+    if (stockHoldings.length === 0) {
+      setStockSyncError('No stock or ETF holdings with a ticker to sync.');
+      return;
+    }
+    setStockSyncing(true);
+    setStockSyncError('');
+    try {
+      const tickers = Array.from(new Set(stockHoldings.map(h => h.ticker!)));
+      const res = await fetch(`/api/quote?symbols=${tickers.map(encodeURIComponent).join(',')}`);
+      if (!res.ok) throw new Error('Price service unavailable, try again later.');
+      const data = await res.json();
+      const unresolved: string[] = [];
+      stockHoldings.forEach(h => {
+        const price = data[h.ticker!];
+        if (typeof price === 'number') updateInvestment(h.id, { currentPrice: price });
+        else unresolved.push(h.ticker!);
+      });
+      setStockLastSynced(new Date().toLocaleTimeString());
+      setStockSyncError(unresolved.length > 0 ? `Couldn't get a live price for: ${unresolved.join(', ')}.` : '');
+    } catch (err) {
+      setStockSyncError(err instanceof Error ? err.message : 'Failed to sync prices. (Live stock sync only works on the deployed Vercel site, not local dev.)');
+    } finally {
+      setStockSyncing(false);
+    }
+  }
+
   function handleImport() {
     if (replaceExisting) {
       investments.forEach(inv => deleteInvestment(inv.id));
@@ -209,6 +260,9 @@ export default function Investments() {
           <p className="text-slate-400 text-sm mt-0.5">Track your wealth growth</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={handleSyncStocks} disabled={stockSyncing} className="btn-secondary flex items-center gap-2">
+            <RefreshCw size={16} className={stockSyncing ? 'animate-spin' : ''} /> {stockSyncing ? 'Syncing...' : 'Sync Stock Prices'}
+          </button>
           <button onClick={handleSyncCrypto} disabled={syncing} className="btn-secondary flex items-center gap-2">
             <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync Crypto Prices'}
           </button>
@@ -220,10 +274,19 @@ export default function Investments() {
           </button>
         </div>
       </div>
-      {(syncError || lastSynced) && (
-        <p className={`text-xs ${syncError ? 'text-rose-400' : 'text-slate-500'}`}>
-          {syncError || `Crypto prices synced at ${lastSynced}`}
-        </p>
+      {(syncError || lastSynced || stockSyncError || stockLastSynced) && (
+        <div className="space-y-0.5">
+          {(syncError || lastSynced) && (
+            <p className={`text-xs ${syncError ? 'text-rose-400' : 'text-slate-500'}`}>
+              {syncError || `Crypto prices synced at ${lastSynced}`}
+            </p>
+          )}
+          {(stockSyncError || stockLastSynced) && (
+            <p className={`text-xs ${stockSyncError ? 'text-rose-400' : 'text-slate-500'}`}>
+              {stockSyncError || `Stock/ETF prices synced at ${stockLastSynced}`}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Summary */}
