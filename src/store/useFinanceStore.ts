@@ -143,11 +143,25 @@ interface FinanceStore {
   deleteInvestment: (id: string) => void;
 
   updateProfile: (updates: Partial<UserProfile>) => void;
+
+  hydrateFromCloud: (data: SyncableState) => void;
+  getSyncableState: () => SyncableState;
+}
+
+export interface SyncableState {
+  transactions: Transaction[];
+  subscriptions: Subscription[];
+  savingsGoals: SavingsGoal[];
+  budgetTemplate: CategoryBudget;
+  budgetTemplateMonth: string;
+  budgetHistory: MonthlyBudget[];
+  investments: Investment[];
+  profile: UserProfile;
 }
 
 export const useFinanceStore = create<FinanceStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       transactions: SAMPLE_TRANSACTIONS,
       subscriptions: SAMPLE_SUBSCRIPTIONS,
       savingsGoals: SAMPLE_GOALS,
@@ -298,6 +312,21 @@ export const useFinanceStore = create<FinanceStore>()(
         set((state) => ({
           profile: { ...state.profile, ...updates },
         })),
+
+      hydrateFromCloud: (data) => set(() => ({ ...data })),
+      getSyncableState: () => {
+        const s = get();
+        return {
+          transactions: s.transactions,
+          subscriptions: s.subscriptions,
+          savingsGoals: s.savingsGoals,
+          budgetTemplate: s.budgetTemplate,
+          budgetTemplateMonth: s.budgetTemplateMonth,
+          budgetHistory: s.budgetHistory,
+          investments: s.investments,
+          profile: s.profile,
+        };
+      },
     }),
     {
       name: 'finance-iq-storage',

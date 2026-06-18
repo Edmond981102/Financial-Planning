@@ -1,8 +1,9 @@
 import {
   LayoutDashboard, ArrowLeftRight, PieChart, CreditCard,
-  Target, TrendingUp, Map, Lightbulb, Settings, Wallet
+  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet
 } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
+import { supabase } from '../../lib/supabase';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -67,11 +68,14 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Settings */}
+      {/* Sign out */}
       <div className="px-3 pb-4 border-t border-slate-800 pt-3">
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all">
-          <Settings size={17} />
-          Settings
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all"
+        >
+          <LogOut size={17} />
+          Sign Out
         </button>
       </div>
     </aside>
