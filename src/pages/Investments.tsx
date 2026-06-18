@@ -27,11 +27,11 @@ const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
   { name: 'UOB United e-Commerce (SGD)', type: 'mutual_fund', units: 6458.26, buyPrice: 0.82, currentPrice: 1.30, purchaseDate: '2026-01-05', color: '#06b6d4', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$1.05, current S$1.66/unit).' },
   { name: 'LionGlobal Singapore Trust (SGD)', type: 'mutual_fund', units: 199.58, buyPrice: 4.30, currentPrice: 5.24, purchaseDate: '2026-01-01', color: '#ec4899', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$5.51, current S$6.72/unit).' },
   // Tiger Brokers - stocks
-  { name: 'WinkingStudios', ticker: 'WKS.SI', type: 'stock', units: 200, buyPrice: 0.1646, currentPrice: 0.1599, purchaseDate: '2026-01-01', color: '#84cc16', notes: 'Tiger Brokers stock. Originally priced in SGD (cost S$0.211, current S$0.205).' },
+  { name: 'WinkingStudios', ticker: 'WKS.SI', type: 'stock', units: 200, buyPrice: 0.156, currentPrice: 0.1599, purchaseDate: '2023-12-03', color: '#84cc16', notes: 'Tiger Brokers stock. Filled buy order: 200 shares @ limit S$0.200 on 2023-12-03 (an earlier S$0.200 order that day was cancelled).' },
   { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 298.43, purchaseDate: '2026-01-02', color: '#6366f1', notes: 'Tiger Brokers auto-invest: USD 2 every Thursday.' },
   { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.10369, buyPrice: 241.05, currentPrice: 324.38, purchaseDate: '2026-05-20', color: '#ef4444', notes: 'Tiger Brokers auto-invest: USD 5 every Wednesday.' },
   { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 121.58, currentPrice: 209.38, purchaseDate: '2026-01-02', color: '#10b981', notes: 'Tiger Brokers auto-invest: USD 5 every Thursday.' },
-  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 206.96, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6' },
+  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 205.87, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6' },
   // Coinbase - crypto
   { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.21, purchaseDate: '2026-02-05', color: '#f59e0b', notes: 'Bought via Coinbase for S$500. Price from Coinbase, updated 2026-06-18 — check Coinbase for the latest.' },
 ];
