@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
-import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download, RefreshCw } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
 import { getTotalInvestmentValue, getTotalInvestmentCost, getInvestmentReturn } from '../utils/calculations';
@@ -46,6 +46,15 @@ const INV_COLORS = [
   '#06b6d4', '#ec4899', '#84cc16',
 ];
 
+// Maps common crypto ticker symbols to CoinGecko's coin IDs for live price lookups.
+const CRYPTO_ID_MAP: Record<string, string> = {
+  BTC: 'bitcoin', ETH: 'ethereum', XRP: 'ripple', SOL: 'solana',
+  ADA: 'cardano', DOGE: 'dogecoin', BNB: 'binancecoin', LTC: 'litecoin',
+  DOT: 'polkadot', MATIC: 'matic-network', AVAX: 'avalanche-2',
+  LINK: 'chainlink', SHIB: 'shiba-inu', TRX: 'tron', ATOM: 'cosmos',
+  UNI: 'uniswap', XLM: 'stellar', USDT: 'tether', USDC: 'usd-coin',
+};
+
 interface InvForm {
   name: string; type: InvestmentType; ticker: string;
   units: string; buyPrice: string; currentPrice: string;
@@ -65,6 +74,9 @@ export default function Investments() {
   const [form, setForm] = useState<InvForm>(emptyForm);
   const [showImportModal, setShowImportModal] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState('');
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
 
   const totalValue = getTotalInvestmentValue(investments);
   const totalCost = getTotalInvestmentCost(investments);
@@ -117,6 +129,31 @@ export default function Investments() {
     setShowModal(false);
   }
 
+  async function handleSyncCrypto() {
+    const cryptoHoldings = investments.filter(inv => inv.type === 'crypto' && inv.ticker && CRYPTO_ID_MAP[inv.ticker.toUpperCase()]);
+    if (cryptoHoldings.length === 0) {
+      setSyncError('No crypto holdings with a recognized ticker (e.g. BTC, ETH, XRP) to sync.');
+      return;
+    }
+    setSyncing(true);
+    setSyncError('');
+    try {
+      const ids = Array.from(new Set(cryptoHoldings.map(h => CRYPTO_ID_MAP[h.ticker!.toUpperCase()])));
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`);
+      if (!res.ok) throw new Error('Price service unavailable, try again later.');
+      const data = await res.json();
+      cryptoHoldings.forEach(h => {
+        const price = data[CRYPTO_ID_MAP[h.ticker!.toUpperCase()]]?.usd;
+        if (typeof price === 'number') updateInvestment(h.id, { currentPrice: price });
+      });
+      setLastSynced(new Date().toLocaleTimeString());
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : 'Failed to sync prices.');
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   function handleImport() {
     if (replaceExisting) {
       investments.forEach(inv => deleteInvestment(inv.id));
@@ -133,6 +170,9 @@ export default function Investments() {
           <p className="text-slate-400 text-sm mt-0.5">Track your wealth growth</p>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={handleSyncCrypto} disabled={syncing} className="btn-secondary flex items-center gap-2">
+            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync Crypto Prices'}
+          </button>
           <button onClick={() => setShowImportModal(true)} className="btn-secondary flex items-center gap-2">
             <Download size={16} /> Import My Holdings
           </button>
@@ -141,6 +181,11 @@ export default function Investments() {
           </button>
         </div>
       </div>
+      {(syncError || lastSynced) && (
+        <p className={`text-xs ${syncError ? 'text-rose-400' : 'text-slate-500'}`}>
+          {syncError || `Crypto prices synced at ${lastSynced}`}
+        </p>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
