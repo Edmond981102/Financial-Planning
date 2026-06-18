@@ -3,28 +3,18 @@ import { Wallet } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 export default function Login() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
-    setInfo('');
     setLoading(true);
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setInfo('Account created! Check your email to confirm, then sign in.');
-        setMode('signin');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -44,10 +34,8 @@ export default function Login() {
             <div className="text-xs text-slate-400">Smart Money Manager</div>
           </div>
         </div>
-        <h1 className="text-lg font-bold text-white mb-1">{mode === 'signin' ? 'Sign in' : 'Create your account'}</h1>
-        <p className="text-xs text-slate-400 mb-5">
-          {mode === 'signin' ? 'Access your data from any device.' : 'Set a password to sync your data everywhere.'}
-        </p>
+        <h1 className="text-lg font-bold text-white mb-1">Sign in</h1>
+        <p className="text-xs text-slate-400 mb-5">Access your data from any device.</p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label className="label">Email</label>
@@ -58,17 +46,10 @@ export default function Login() {
             <input className="input" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
           {error && <p className="text-xs text-rose-400">{error}</p>}
-          {info && <p className="text-xs text-emerald-400">{info}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center">
-            {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            {loading ? 'Please wait...' : 'Sign In'}
           </button>
         </form>
-        <button
-          onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setInfo(''); }}
-          className="text-xs text-slate-400 hover:text-white mt-4 w-full text-center"
-        >
-          {mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-        </button>
       </div>
     </div>
   );
