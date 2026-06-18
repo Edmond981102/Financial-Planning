@@ -1,10 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download, RefreshCw } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
 import { getTotalInvestmentValue, getTotalInvestmentCost, getInvestmentReturn } from '../utils/calculations';
-import { Investment, InvestmentType } from '../types';
+import { Investment, InvestmentType, AutoInvestConfig } from '../types';
+
+// Computes the next date an auto-invest contribution is due, after `from`.
+function nextAutoInvestOccurrence(from: Date, config: AutoInvestConfig): Date {
+  const next = new Date(from);
+  if (config.frequency === 'weekly') {
+    next.setDate(next.getDate() + 1);
+    while (next.getDay() !== config.dayOfWeek) next.setDate(next.getDate() + 1);
+  } else {
+    next.setMonth(next.getMonth() + 1);
+    next.setDate(config.dayOfMonth ?? 1);
+  }
+  return next;
+}
 
 // Real holdings extracted from StashAway (May 2026 statement), Tiger Brokers
 // (Jan-Jun 2026 activity statement, SGD positions converted to USD at the
@@ -28,9 +41,9 @@ const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
   { name: 'LionGlobal Singapore Trust (SGD)', type: 'mutual_fund', units: 199.58, buyPrice: 4.30, currentPrice: 5.24, purchaseDate: '2026-01-01', color: '#ec4899', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$5.51, current S$6.72/unit).' },
   // Tiger Brokers - stocks
   { name: 'WinkingStudios', ticker: 'WKS.SI', type: 'stock', units: 200, buyPrice: 0.156, currentPrice: 0.1599, purchaseDate: '2023-12-03', color: '#84cc16', notes: 'Tiger Brokers stock. Filled buy order: 200 shares @ limit S$0.200 on 2023-12-03 (an earlier S$0.200 order that day was cancelled).' },
-  { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 298.43, purchaseDate: '2026-01-02', color: '#6366f1', notes: 'Tiger Brokers auto-invest: USD 2 every Thursday.' },
-  { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.10369, buyPrice: 241.05, currentPrice: 324.38, purchaseDate: '2026-05-20', color: '#ef4444', notes: 'Tiger Brokers auto-invest: USD 5 every Wednesday.' },
-  { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 121.58, currentPrice: 209.38, purchaseDate: '2026-01-02', color: '#10b981', notes: 'Tiger Brokers auto-invest: USD 5 every Thursday.' },
+  { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 298.43, purchaseDate: '2026-01-02', color: '#6366f1', notes: 'Tiger Brokers auto-invest: USD 2 every Thursday.', autoInvest: { amountUsd: 2, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' } },
+  { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.10369, buyPrice: 241.05, currentPrice: 324.38, purchaseDate: '2026-05-20', color: '#ef4444', notes: 'Tiger Brokers auto-invest: USD 5 every Wednesday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 3, lastAppliedDate: '2026-06-18' } },
+  { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 121.58, currentPrice: 209.38, purchaseDate: '2026-01-02', color: '#10b981', notes: 'Tiger Brokers auto-invest: USD 5 every Thursday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' } },
   { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 205.87, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6' },
   // Coinbase - crypto
   { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.21, purchaseDate: '2026-02-05', color: '#f59e0b', notes: 'Bought via Coinbase for S$500. Price from Coinbase, updated 2026-06-18 — check Coinbase for the latest.' },
@@ -77,6 +90,32 @@ export default function Investments() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    investments.forEach(inv => {
+      if (!inv.autoInvest) return;
+      const cfg = inv.autoInvest;
+      let units = inv.units;
+      let buyPrice = inv.buyPrice;
+      let lastApplied = cfg.lastAppliedDate;
+      let changed = false;
+      let next = nextAutoInvestOccurrence(new Date(cfg.lastAppliedDate), cfg);
+      while (next <= today) {
+        const addedUnits = cfg.amountUsd / inv.currentPrice;
+        const newUnits = units + addedUnits;
+        buyPrice = (units * buyPrice + addedUnits * inv.currentPrice) / newUnits;
+        units = newUnits;
+        lastApplied = next.toISOString().slice(0, 10);
+        changed = true;
+        next = nextAutoInvestOccurrence(next, cfg);
+      }
+      if (changed) {
+        updateInvestment(inv.id, { units, buyPrice, autoInvest: { ...cfg, lastAppliedDate: lastApplied } });
+      }
+    });
+  }, [investments, updateInvestment]);
 
   const totalValue = getTotalInvestmentValue(investments);
   const totalCost = getTotalInvestmentCost(investments);
@@ -292,7 +331,12 @@ export default function Investments() {
                         {(inv.ticker || inv.name).charAt(0)}
                       </div>
                       <div>
-                        <div className="text-white font-medium text-xs">{inv.name}</div>
+                        <div className="text-white font-medium text-xs flex items-center gap-1.5">
+                          {inv.name}
+                          {inv.autoInvest && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Auto</span>
+                          )}
+                        </div>
                         {inv.ticker && <div className="text-slate-500 text-xs">{inv.ticker}</div>}
                       </div>
                     </div>

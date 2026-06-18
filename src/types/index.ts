@@ -63,6 +63,14 @@ export type InvestmentType =
   | 'stock' | 'etf' | 'crypto' | 'mutual_fund'
   | 'bond' | 'real_estate' | 'gold' | 'other';
 
+export interface AutoInvestConfig {
+  amountUsd: number;
+  frequency: 'weekly' | 'monthly';
+  dayOfWeek?: number; // 0 (Sun) - 6 (Sat), required when frequency is 'weekly'
+  dayOfMonth?: number; // 1-31, required when frequency is 'monthly'
+  lastAppliedDate: string; // YYYY-MM-DD; the last occurrence already reflected in units/buyPrice
+}
+
 export interface Investment {
   id: string;
   name: string;
@@ -74,6 +82,7 @@ export interface Investment {
   purchaseDate: string;
   notes?: string;
   color: string;
+  autoInvest?: AutoInvestConfig;
 }
 
 export interface UserProfile {
