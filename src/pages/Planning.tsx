@@ -104,6 +104,10 @@ export default function Planning() {
               <input className="input" type="number" value={profileDraft.monthlySavingsTarget} onChange={e => setProfileDraft(p => ({ ...p, monthlySavingsTarget: Number(e.target.value) }))} />
             </div>
             <div>
+              <label className="label">Target Retirement Amount</label>
+              <input className="input" type="number" value={profileDraft.retirementTargetAmount ?? ''} onChange={e => setProfileDraft(p => ({ ...p, retirementTargetAmount: e.target.value ? Number(e.target.value) : undefined }))} />
+            </div>
+            <div>
               <label className="label">Risk Tolerance</label>
               <select className="input" value={profileDraft.riskTolerance} onChange={e => setProfileDraft(p => ({ ...p, riskTolerance: e.target.value as typeof profile.riskTolerance }))}>
                 <option value="conservative">Conservative (4-5% return)</option>
@@ -135,7 +139,11 @@ export default function Planning() {
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Retirement at {profile.retirementAge}</div>
           <div className="text-2xl font-bold text-blue-400">{formatCurrency(projectedRetirementWealth)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">projected wealth</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            {profile.retirementTargetAmount
+              ? `${((projectedRetirementWealth / profile.retirementTargetAmount) * 100).toFixed(0)}% of ${formatCurrency(profile.retirementTargetAmount)} target`
+              : 'projected wealth'}
+          </div>
         </div>
       </div>
 

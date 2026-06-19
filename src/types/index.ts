@@ -118,6 +118,8 @@ export interface UserProfile {
   residencyStatus?: ResidencyStatus;
   prStartDate?: string; // YYYY-MM-DD; only set when residencyStatus === 'pr', used to determine the CPF graduated-rate year
   allocationTargets?: AllocationTargets;
+  dateOfBirth?: string; // YYYY-MM-DD; source of truth for currentAge so it stays accurate as time passes
+  retirementTargetAmount?: number;
 }
 
 export interface CreditCard {

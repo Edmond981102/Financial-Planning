@@ -377,12 +377,27 @@ export default function Budget() {
 
             if (isEditing) {
               return (
-                <div key={c.id} className="flex items-center gap-2 bg-slate-800/60 rounded-xl p-3">
-                  <input className="input flex-1" placeholder="Name" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} />
-                  <input className="input w-28" type="number" placeholder="Limit" value={cardDraft.limit} onChange={e => setCardDraft(d => ({ ...d, limit: e.target.value }))} />
-                  <input className="input w-28" type="number" placeholder="Balance" value={cardDraft.currentBalance} onChange={e => setCardDraft(d => ({ ...d, currentBalance: e.target.value }))} />
-                  <input className="input w-24" type="number" min="1" max="31" placeholder="Stmt day" value={cardDraft.statementDay} onChange={e => setCardDraft(d => ({ ...d, statementDay: e.target.value }))} />
-                  <input className="input w-24" type="number" min="1" max="31" placeholder="Due day" value={cardDraft.dueDay} onChange={e => setCardDraft(d => ({ ...d, dueDay: e.target.value }))} />
+                <div key={c.id} className="flex items-end gap-2 bg-slate-800/60 rounded-xl p-3">
+                  <div className="flex-1">
+                    <label className="label">Name</label>
+                    <input className="input" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} />
+                  </div>
+                  <div className="w-28">
+                    <label className="label">Limit</label>
+                    <input className="input" type="number" value={cardDraft.limit} onChange={e => setCardDraft(d => ({ ...d, limit: e.target.value }))} />
+                  </div>
+                  <div className="w-28">
+                    <label className="label">Balance</label>
+                    <input className="input" type="number" value={cardDraft.currentBalance} onChange={e => setCardDraft(d => ({ ...d, currentBalance: e.target.value }))} />
+                  </div>
+                  <div className="w-24">
+                    <label className="label">Stmt day</label>
+                    <input className="input" type="number" min="1" max="31" value={cardDraft.statementDay} onChange={e => setCardDraft(d => ({ ...d, statementDay: e.target.value }))} />
+                  </div>
+                  <div className="w-24">
+                    <label className="label">Due day</label>
+                    <input className="input" type="number" min="1" max="31" value={cardDraft.dueDay} onChange={e => setCardDraft(d => ({ ...d, dueDay: e.target.value }))} />
+                  </div>
                   <button onClick={saveCardEdit} className="btn-primary p-2"><Check size={14} /></button>
                   <button onClick={() => setEditingCardId(null)} className="btn-secondary p-2"><X size={14} /></button>
                 </div>
@@ -425,12 +440,27 @@ export default function Budget() {
           })}
 
           {showAddCard && (
-            <div className="flex items-center gap-2 bg-slate-800/60 rounded-xl p-3">
-              <input className="input flex-1" placeholder="Card name" value={newCard.name} onChange={e => setNewCard(d => ({ ...d, name: e.target.value }))} />
-              <input className="input w-28" type="number" placeholder="Limit" value={newCard.limit} onChange={e => setNewCard(d => ({ ...d, limit: e.target.value }))} />
-              <input className="input w-28" type="number" placeholder="Balance" value={newCard.currentBalance} onChange={e => setNewCard(d => ({ ...d, currentBalance: e.target.value }))} />
-              <input className="input w-24" type="number" min="1" max="31" placeholder="Stmt day" value={newCard.statementDay} onChange={e => setNewCard(d => ({ ...d, statementDay: e.target.value }))} />
-              <input className="input w-24" type="number" min="1" max="31" placeholder="Due day" value={newCard.dueDay} onChange={e => setNewCard(d => ({ ...d, dueDay: e.target.value }))} />
+            <div className="flex items-end gap-2 bg-slate-800/60 rounded-xl p-3">
+              <div className="flex-1">
+                <label className="label">Card name</label>
+                <input className="input" value={newCard.name} onChange={e => setNewCard(d => ({ ...d, name: e.target.value }))} />
+              </div>
+              <div className="w-28">
+                <label className="label">Limit</label>
+                <input className="input" type="number" value={newCard.limit} onChange={e => setNewCard(d => ({ ...d, limit: e.target.value }))} />
+              </div>
+              <div className="w-28">
+                <label className="label">Balance</label>
+                <input className="input" type="number" value={newCard.currentBalance} onChange={e => setNewCard(d => ({ ...d, currentBalance: e.target.value }))} />
+              </div>
+              <div className="w-24">
+                <label className="label">Stmt day</label>
+                <input className="input" type="number" min="1" max="31" value={newCard.statementDay} onChange={e => setNewCard(d => ({ ...d, statementDay: e.target.value }))} />
+              </div>
+              <div className="w-24">
+                <label className="label">Due day</label>
+                <input className="input" type="number" min="1" max="31" value={newCard.dueDay} onChange={e => setNewCard(d => ({ ...d, dueDay: e.target.value }))} />
+              </div>
               <button onClick={submitNewCard} className="btn-primary p-2"><Check size={14} /></button>
               <button onClick={() => setShowAddCard(false)} className="btn-secondary p-2"><X size={14} /></button>
             </div>

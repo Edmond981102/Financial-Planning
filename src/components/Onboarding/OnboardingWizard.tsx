@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Wallet, ChevronRight, ChevronLeft, Plus, Trash2, CheckCircle2 } from 'lucide-react';
-import { addYears, format } from 'date-fns';
+import { addYears, differenceInCalendarYears, format, parseISO, startOfMonth, subYears } from 'date-fns';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { getCpfBreakdown } from '../../utils/cpf';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
@@ -41,15 +41,21 @@ export default function OnboardingWizard() {
 
   const [name, setName] = useState(profile.name);
   const [monthlyIncome, setMonthlyIncome] = useState(String(profile.monthlyIncome));
-  const [currentAge, setCurrentAge] = useState(String(profile.currentAge));
+  const [dateOfBirth, setDateOfBirth] = useState(
+    profile.dateOfBirth ?? format(subYears(new Date(), profile.currentAge || 25), 'yyyy-MM-dd')
+  );
+  const currentAge = dateOfBirth ? differenceInCalendarYears(new Date(), parseISO(dateOfBirth)) : 0;
   const [retirementAge, setRetirementAge] = useState(String(profile.retirementAge));
+  const [retirementTargetAmount, setRetirementTargetAmount] = useState(String(profile.retirementTargetAmount ?? ''));
 
   const [residencyStatus, setResidencyStatus] = useState<ResidencyStatus>(profile.residencyStatus ?? 'citizen');
   const [prStartDate, setPrStartDate] = useState(profile.prStartDate ?? '');
 
+  const defaultGoalTargetDate = () => format(startOfMonth(addYears(new Date(), 1)), 'yyyy-MM-dd');
+
   const [goals, setGoals] = useState<GoalDraft[]>([]);
   const [goalDraft, setGoalDraft] = useState<GoalDraft>({
-    name: '', targetAmount: '', targetDate: format(addYears(new Date(), 1), 'yyyy-MM-dd'), monthlyContribution: '',
+    name: '', targetAmount: '', targetDate: defaultGoalTargetDate(), monthlyContribution: '',
   });
 
   const [savingsPct, setSavingsPct] = useState(String(profile.allocationTargets?.savingsPct ?? 20));
@@ -64,7 +70,7 @@ export default function OnboardingWizard() {
   const previewProfile = {
     ...profile,
     monthlyIncome: parseFloat(monthlyIncome) || 0,
-    currentAge: parseFloat(currentAge) || 0,
+    currentAge,
     residencyStatus,
     prStartDate: prStartDate || undefined,
   };
@@ -75,7 +81,7 @@ export default function OnboardingWizard() {
   function addGoalRow() {
     if (!goalDraft.name.trim() || !goalDraft.targetAmount) return;
     setGoals((g) => [...g, goalDraft]);
-    setGoalDraft({ name: '', targetAmount: '', targetDate: format(addYears(new Date(), 1), 'yyyy-MM-dd'), monthlyContribution: '' });
+    setGoalDraft({ name: '', targetAmount: '', targetDate: defaultGoalTargetDate(), monthlyContribution: '' });
   }
 
   function addCardRow() {
@@ -91,8 +97,10 @@ export default function OnboardingWizard() {
     const profileUpdates: Partial<UserProfile> = {
       name: name.trim() || profile.name,
       monthlyIncome: parseFloat(monthlyIncome) || profile.monthlyIncome,
-      currentAge: parseFloat(currentAge) || profile.currentAge,
+      dateOfBirth: dateOfBirth || profile.dateOfBirth,
+      currentAge: dateOfBirth ? currentAge : profile.currentAge,
       retirementAge: parseFloat(retirementAge) || profile.retirementAge,
+      retirementTargetAmount: retirementTargetAmount ? parseFloat(retirementTargetAmount) : profile.retirementTargetAmount,
     };
     if (maxStepReached >= 1) {
       profileUpdates.residencyStatus = residencyStatus;
@@ -173,13 +181,20 @@ export default function OnboardingWizard() {
                   <input className="input" type="number" min="0" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label">Current age</label>
-                  <input className="input" type="number" min="0" value={currentAge} onChange={(e) => setCurrentAge(e.target.value)} />
+                  <label className="label">Date of birth</label>
+                  <input className="input" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
+                  {dateOfBirth && <p className="text-xs text-slate-500 mt-1">Age {currentAge}</p>}
                 </div>
               </div>
-              <div>
-                <label className="label">Target retirement age</label>
-                <input className="input" type="number" min="0" value={retirementAge} onChange={(e) => setRetirementAge(e.target.value)} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Target retirement age</label>
+                  <input className="input" type="number" min="0" value={retirementAge} onChange={(e) => setRetirementAge(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Target retirement amount</label>
+                  <input className="input" type="number" min="0" placeholder="e.g. 1,000,000" value={retirementTargetAmount} onChange={(e) => setRetirementTargetAmount(e.target.value)} />
+                </div>
               </div>
             </div>
           )}
@@ -243,7 +258,7 @@ export default function OnboardingWizard() {
                   <span className="text-white">{g.name}</span>
                   <div className="flex items-center gap-3 text-xs text-slate-400">
                     <span>{formatCurrency(parseFloat(g.targetAmount) || 0)}</span>
-                    <span>by {g.targetDate}</span>
+                    <span>by {format(parseISO(g.targetDate), 'MMM yyyy')}</span>
                     <button onClick={() => setGoals((arr) => arr.filter((_, idx) => idx !== i))} className="text-slate-500 hover:text-rose-400">
                       <Trash2 size={13} />
                     </button>
@@ -253,7 +268,7 @@ export default function OnboardingWizard() {
               <div className="grid grid-cols-2 gap-2">
                 <input className="input" placeholder="Goal name (e.g. Wedding)" value={goalDraft.name} onChange={(e) => setGoalDraft((d) => ({ ...d, name: e.target.value }))} />
                 <input className="input" type="number" placeholder="Target amount" value={goalDraft.targetAmount} onChange={(e) => setGoalDraft((d) => ({ ...d, targetAmount: e.target.value }))} />
-                <input className="input" type="date" value={goalDraft.targetDate} onChange={(e) => setGoalDraft((d) => ({ ...d, targetDate: e.target.value }))} />
+                <input className="input" type="month" value={goalDraft.targetDate.slice(0, 7)} onChange={(e) => setGoalDraft((d) => ({ ...d, targetDate: `${e.target.value}-01` }))} />
                 <input className="input" type="number" placeholder="Monthly contribution (optional)" value={goalDraft.monthlyContribution} onChange={(e) => setGoalDraft((d) => ({ ...d, monthlyContribution: e.target.value }))} />
               </div>
               <button onClick={addGoalRow} className="btn-secondary flex items-center gap-1.5 text-xs">
@@ -301,12 +316,27 @@ export default function OnboardingWizard() {
                 </div>
               ))}
               <div className="grid grid-cols-2 gap-2">
-                <input className="input" placeholder="Card name" value={cardDraft.name} onChange={(e) => setCardDraft((d) => ({ ...d, name: e.target.value }))} />
-                <input className="input" type="number" placeholder="Credit limit" value={cardDraft.limit} onChange={(e) => setCardDraft((d) => ({ ...d, limit: e.target.value }))} />
-                <input className="input" type="number" placeholder="Current balance" value={cardDraft.currentBalance} onChange={(e) => setCardDraft((d) => ({ ...d, currentBalance: e.target.value }))} />
-                <div className="flex gap-2">
-                  <input className="input" type="number" min="1" max="31" placeholder="Statement day" value={cardDraft.statementDay} onChange={(e) => setCardDraft((d) => ({ ...d, statementDay: e.target.value }))} />
-                  <input className="input" type="number" min="1" max="31" placeholder="Due day" value={cardDraft.dueDay} onChange={(e) => setCardDraft((d) => ({ ...d, dueDay: e.target.value }))} />
+                <div>
+                  <label className="label">Card name</label>
+                  <input className="input" value={cardDraft.name} onChange={(e) => setCardDraft((d) => ({ ...d, name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Credit limit</label>
+                  <input className="input" type="number" value={cardDraft.limit} onChange={(e) => setCardDraft((d) => ({ ...d, limit: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Current balance</label>
+                  <input className="input" type="number" value={cardDraft.currentBalance} onChange={(e) => setCardDraft((d) => ({ ...d, currentBalance: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label">Statement day</label>
+                    <input className="input" type="number" min="1" max="31" value={cardDraft.statementDay} onChange={(e) => setCardDraft((d) => ({ ...d, statementDay: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="label">Due day</label>
+                    <input className="input" type="number" min="1" max="31" value={cardDraft.dueDay} onChange={(e) => setCardDraft((d) => ({ ...d, dueDay: e.target.value }))} />
+                  </div>
                 </div>
               </div>
               <button onClick={addCardRow} className="btn-secondary flex items-center gap-1.5 text-xs">
