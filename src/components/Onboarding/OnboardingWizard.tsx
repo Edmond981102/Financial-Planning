@@ -10,15 +10,18 @@ import MoneyInput from '../common/MoneyInput';
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
 
-// Statement/due days are a recurring day-of-month (1-31), but a native date
-// picker is friendlier to fill in than a number stepper — so we render one
-// pinned to a fixed reference month and only read back the day component.
-function dayToDateInputValue(day: number): string {
-  return `2024-01-${String(Math.min(31, Math.max(1, day || 1))).padStart(2, '0')}`;
+// Statement/due days are a recurring day-of-month (1-31) with no year or
+// month attached, so a plain day picker avoids implying a specific date.
+function ordinal(day: number): string {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1: return `${day}st`;
+    case 2: return `${day}nd`;
+    case 3: return `${day}rd`;
+    default: return `${day}th`;
+  }
 }
-function dateInputValueToDay(value: string): number {
-  return Math.min(31, Math.max(1, parseInt(value.slice(-2), 10) || 1));
-}
+const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
 
 interface GoalDraft {
   name: string;
@@ -341,22 +344,28 @@ export default function OnboardingWizard() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="label">Statement date</label>
-                    <input
+                    <label className="label">Statement day</label>
+                    <select
                       className="input"
-                      type="date"
-                      value={dayToDateInputValue(parseInt(cardDraft.statementDay, 10))}
-                      onChange={(e) => setCardDraft((d) => ({ ...d, statementDay: String(dateInputValueToDay(e.target.value)) }))}
-                    />
+                      value={cardDraft.statementDay}
+                      onChange={(e) => setCardDraft((d) => ({ ...d, statementDay: e.target.value }))}
+                    >
+                      {DAYS_OF_MONTH.map((day) => (
+                        <option key={day} value={day}>{ordinal(day)}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
-                    <label className="label">Due date</label>
-                    <input
+                    <label className="label">Due day</label>
+                    <select
                       className="input"
-                      type="date"
-                      value={dayToDateInputValue(parseInt(cardDraft.dueDay, 10))}
-                      onChange={(e) => setCardDraft((d) => ({ ...d, dueDay: String(dateInputValueToDay(e.target.value)) }))}
-                    />
+                      value={cardDraft.dueDay}
+                      onChange={(e) => setCardDraft((d) => ({ ...d, dueDay: e.target.value }))}
+                    >
+                      {DAYS_OF_MONTH.map((day) => (
+                        <option key={day} value={day}>{ordinal(day)}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
