@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line } from 'recharts';
-import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
 import { Investment, InvestmentType, AutoInvestConfig, InvestmentPlatform, PurchaseRecord } from '../types';
@@ -145,6 +145,10 @@ const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
 ];
 
 const PLATFORM_ORDER: InvestmentPlatform[] = ['Tiger Brokers', 'Coinbase', 'StashAway', 'Other'];
+
+const PLATFORM_COLORS: Record<InvestmentPlatform, string> = {
+  'Tiger Brokers': '#3b82f6', Coinbase: '#f59e0b', StashAway: '#10b981', Other: '#64748b',
+};
 
 // Platforms actually covered by REAL_HOLDINGS, in display order, for the Import modal's per-platform toggles.
 const IMPORT_PLATFORMS = PLATFORM_ORDER.filter(p => REAL_HOLDINGS.some(h => h.platform === p));
@@ -330,11 +334,13 @@ export default function Investments() {
   const totalReturn = totalValue - totalCost;
   const returnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
 
-  const allocationData = investments.map(inv => ({
-    name: inv.ticker || inv.name,
-    value: toSgd(inv.units * inv.currentPrice, inv.platform),
-    color: inv.color,
-  }));
+  const allocationData = PLATFORM_ORDER.map(platform => ({
+    name: platform,
+    value: investments
+      .filter(inv => (inv.platform || 'Other') === platform)
+      .reduce((sum, inv) => sum + toSgd(inv.units * inv.currentPrice, inv.platform), 0),
+    color: PLATFORM_COLORS[platform],
+  })).filter(d => d.value > 0);
 
   const performanceData = investments.map(inv => ({
     name: inv.ticker || inv.name.substring(0, 8),
@@ -482,12 +488,6 @@ export default function Investments() {
           <p className="text-slate-400 text-sm mt-0.5">Track your wealth growth · prices auto-refresh every 15 min while this page is open</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handleSyncStocks} disabled={stockSyncing} className="btn-secondary flex items-center gap-2">
-            <RefreshCw size={16} className={stockSyncing ? 'animate-spin' : ''} /> {stockSyncing ? 'Syncing...' : 'Sync Stock Prices Now'}
-          </button>
-          <button onClick={handleSyncCrypto} disabled={syncing} className="btn-secondary flex items-center gap-2">
-            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync Crypto Prices Now'}
-          </button>
           <button onClick={() => setShowImportModal(true)} className="btn-secondary flex items-center gap-2">
             <Download size={16} /> Import My Holdings
           </button>
@@ -543,7 +543,7 @@ export default function Investments() {
       {/* Charts */}
       <div className="grid grid-cols-2 gap-4">
         <div className="card">
-          <h2 className="text-sm font-semibold text-white mb-4">Portfolio Allocation</h2>
+          <h2 className="text-sm font-semibold text-white mb-4">Portfolio Allocation by Platform</h2>
           <div className="flex gap-4 items-center">
             <ResponsiveContainer width={160} height={160}>
               <PieChart>
