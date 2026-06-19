@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { useFinanceStore } from './store/useFinanceStore';
 import Login from './components/Auth/Login';
+import OnboardingWizard from './components/Onboarding/OnboardingWizard';
 import Sidebar from './components/Layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
@@ -34,6 +35,7 @@ async function pushToCloud(userId: string) {
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const activeView = useFinanceStore((s) => s.activeView);
+  const onboardingComplete = useFinanceStore((s) => s.onboardingComplete);
   const processAutoSubscriptions = useFinanceStore((s) => s.processAutoSubscriptions);
   const checkBudgetRollover = useFinanceStore((s) => s.checkBudgetRollover);
   const PageComponent = PAGES[activeView] || Dashboard;
@@ -96,6 +98,10 @@ export default function App() {
 
   if (!session) {
     return <Login />;
+  }
+
+  if (!onboardingComplete) {
+    return <OnboardingWizard />;
   }
 
   return (

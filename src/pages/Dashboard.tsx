@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Wallet,
-  CreditCard, Target, ArrowUpRight, ArrowDownRight, Bell
+  CreditCard, Target, ArrowUpRight, ArrowDownRight, Bell, AlertTriangle
 } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -14,7 +14,14 @@ import {
   getCategoryTotals, getMonthTransactions, getTotalInvestmentValue,
   getMonthlySubscriptionTotal, calculateGoalProgress
 } from '../utils/calculations';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays, setDate, isBefore, addMonths } from 'date-fns';
+
+function getNextDueDate(dueDay: number): Date {
+  const today = new Date();
+  let next = setDate(today, dueDay);
+  if (isBefore(next, today)) next = setDate(addMonths(today, 1), dueDay);
+  return next;
+}
 
 const CATEGORY_COLORS = [
   '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -38,7 +45,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-  const { transactions, investments, subscriptions, savingsGoals, profile } = useFinanceStore();
+  const { transactions, investments, subscriptions, savingsGoals, profile, creditCards, reopenOnboarding } = useFinanceStore();
+
+  const profileIncomplete = !profile.residencyStatus || !profile.allocationTargets;
 
   const thisMonth = format(new Date(), 'yyyy-MM');
   const lastMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
@@ -80,6 +89,20 @@ export default function Dashboard() {
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-emerald-400 rounded-full" />
         </button>
       </div>
+
+      {/* Setup reminder */}
+      {profileIncomplete && (
+        <div className="card !bg-amber-500/10 !border-amber-500/30 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+            <div>
+              <div className="text-sm text-white font-medium">Finish setting up your financial profile</div>
+              <div className="text-xs text-slate-400">Add your residency status and budget split so FinanceIQ can give you accurate advice.</div>
+            </div>
+          </div>
+          <button onClick={reopenOnboarding} className="btn-secondary shrink-0 text-xs">Finish setup</button>
+        </div>
+      )}
 
       {/* Metric Cards */}
       <div className="grid grid-cols-4 gap-4">
@@ -228,6 +251,34 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Credit Cards */}
+          {creditCards.length > 0 && (
+            <div className="card">
+              <h2 className="text-sm font-semibold text-white mb-3">Credit Cards</h2>
+              <div className="space-y-3">
+                {creditCards.map((c) => {
+                  const utilization = c.limit > 0 ? Math.min(100, (c.currentBalance / c.limit) * 100) : 0;
+                  const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
+                  const dueSoon = daysUntilDue <= 5;
+                  return (
+                    <div key={c.id}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-400">{c.name}</span>
+                        <span className={dueSoon ? 'text-amber-400 font-medium' : 'text-slate-500'}>
+                          Due in {daysUntilDue}d
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${utilization}%`, background: c.color }} />
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">{formatCurrency(c.currentBalance)} / {formatCurrency(c.limit)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Savings Goals */}
           <div className="card">

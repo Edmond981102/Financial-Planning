@@ -1,10 +1,20 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock } from 'lucide-react';
+import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, CreditCard as CreditCardIcon } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { formatCurrency } from '../utils/formatters';
-import { getMonthExpenses, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
-import { format, subMonths } from 'date-fns';
+import { formatCurrency, formatPercent } from '../utils/formatters';
+import { getMonthExpenses, getMonthIncome, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
+import { format, subMonths, setDate, isBefore, addMonths, differenceInCalendarDays } from 'date-fns';
+import { CreditCard } from '../types';
+
+const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
+
+function getNextDueDate(dueDay: number): Date {
+  const today = new Date();
+  let next = setDate(today, dueDay);
+  if (isBefore(next, today)) next = setDate(addMonths(today, 1), dueDay);
+  return next;
+}
 
 const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
   'Housing': 1500,
@@ -22,13 +32,21 @@ const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
 };
 
 export default function Budget() {
-  const { transactions, budgetTemplate, budgetHistory, updateBudgetTemplate } = useFinanceStore();
+  const {
+    transactions, budgetTemplate, budgetHistory, updateBudgetTemplate,
+    investments, profile, creditCards, addCreditCard, updateCreditCard, deleteCreditCard,
+  } = useFinanceStore();
   const currentRealMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
   const [editMode, setEditMode] = useState(false);
   const [draftBudget, setDraftBudget] = useState<Record<string, string>>({});
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
+
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [cardDraft, setCardDraft] = useState<Record<string, string>>({});
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [newCard, setNewCard] = useState({ name: '', limit: '', currentBalance: '0', statementDay: '1', dueDay: '15' });
 
   const isPastMonth = selectedMonth < currentRealMonth;
 
@@ -95,6 +113,54 @@ export default function Budget() {
     });
   }
 
+  const thisMonthIncome = getMonthIncome(transactions, currentRealMonth);
+  const monthlyAutoInvest = investments.reduce((sum, inv) => {
+    if (!inv.autoInvest) return sum;
+    return sum + (inv.autoInvest.frequency === 'weekly' ? inv.autoInvest.amountUsd * 52 / 12 : inv.autoInvest.amountUsd);
+  }, 0);
+  const actualExpensesPct = thisMonthIncome > 0 ? (getMonthExpenses(transactions, currentRealMonth) / thisMonthIncome) * 100 : 0;
+  const actualInvestmentsPct = thisMonthIncome > 0 ? (monthlyAutoInvest / thisMonthIncome) * 100 : 0;
+  const actualSavingsPct = Math.max(0, 100 - actualExpensesPct - actualInvestmentsPct);
+
+  const targets = profile.allocationTargets ?? { savingsPct: 20, expensesPct: 60, investmentsPct: 20 };
+
+  function startEditCard(card: CreditCard) {
+    setEditingCardId(card.id);
+    setCardDraft({
+      name: card.name,
+      limit: String(card.limit),
+      currentBalance: String(card.currentBalance),
+      statementDay: String(card.statementDay),
+      dueDay: String(card.dueDay),
+    });
+  }
+
+  function saveCardEdit() {
+    if (!editingCardId) return;
+    updateCreditCard(editingCardId, {
+      name: cardDraft.name.trim(),
+      limit: parseFloat(cardDraft.limit) || 0,
+      currentBalance: parseFloat(cardDraft.currentBalance) || 0,
+      statementDay: Math.min(31, Math.max(1, parseInt(cardDraft.statementDay) || 1)),
+      dueDay: Math.min(31, Math.max(1, parseInt(cardDraft.dueDay) || 1)),
+    });
+    setEditingCardId(null);
+  }
+
+  function submitNewCard() {
+    if (!newCard.name.trim() || !newCard.limit) return;
+    addCreditCard({
+      name: newCard.name.trim(),
+      limit: parseFloat(newCard.limit) || 0,
+      currentBalance: parseFloat(newCard.currentBalance) || 0,
+      statementDay: Math.min(31, Math.max(1, parseInt(newCard.statementDay) || 1)),
+      dueDay: Math.min(31, Math.max(1, parseInt(newCard.dueDay) || 1)),
+      color: CARD_COLORS[creditCards.length % CARD_COLORS.length],
+    });
+    setNewCard({ name: '', limit: '', currentBalance: '0', statementDay: '1', dueDay: '15' });
+    setShowAddCard(false);
+  }
+
   const lastThreeMonths = Array.from({ length: 4 }, (_, i) => {
     const d = subMonths(new Date(), i);
     return format(d, 'yyyy-MM');
@@ -153,6 +219,33 @@ export default function Budget() {
             {formatCurrency(Math.abs(totalRemaining))}
           </div>
           <div className="text-xs text-slate-500 mt-0.5">{totalRemaining < 0 ? 'Over budget!' : 'left to spend'}</div>
+        </div>
+      </div>
+
+      {/* Income Allocation: target vs actual */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">Income Allocation — This Month</h2>
+          <span className="text-xs text-slate-500">Target set during profile setup</span>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'Savings', target: targets.savingsPct, actual: actualSavingsPct, good: actualSavingsPct >= targets.savingsPct },
+            { label: 'Expenses', target: targets.expensesPct, actual: actualExpensesPct, good: actualExpensesPct <= targets.expensesPct },
+            { label: 'Investments', target: targets.investmentsPct, actual: actualInvestmentsPct, good: actualInvestmentsPct >= targets.investmentsPct },
+          ].map((row) => (
+            <div key={row.label}>
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="text-slate-400">{row.label}</span>
+                <span className={row.good ? 'text-emerald-400' : 'text-amber-400'}>
+                  {formatPercent(row.actual, 0)} <span className="text-slate-500">/ {formatPercent(row.target, 0)} target</span>
+                </span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, row.actual)}%`, background: row.good ? '#10b981' : '#f59e0b' }} />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -257,6 +350,89 @@ export default function Budget() {
               <button onClick={addCategory} className="btn-secondary py-1.5 px-3 flex items-center gap-1.5 shrink-0">
                 <Plus size={13} /> Add
               </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Credit Cards */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">Credit Cards</h2>
+          <button onClick={() => setShowAddCard(s => !s)} className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3">
+            <Plus size={13} /> Add Card
+          </button>
+        </div>
+
+        {creditCards.length === 0 && !showAddCard && (
+          <p className="text-slate-500 text-sm py-4 text-center">No credit cards added yet.</p>
+        )}
+
+        <div className="space-y-3">
+          {creditCards.map((c) => {
+            const isEditing = editingCardId === c.id;
+            const utilization = c.limit > 0 ? Math.min(100, (c.currentBalance / c.limit) * 100) : 0;
+            const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
+            const dueSoon = daysUntilDue <= 5;
+
+            if (isEditing) {
+              return (
+                <div key={c.id} className="flex items-center gap-2 bg-slate-800/60 rounded-xl p-3">
+                  <input className="input flex-1" placeholder="Name" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} />
+                  <input className="input w-28" type="number" placeholder="Limit" value={cardDraft.limit} onChange={e => setCardDraft(d => ({ ...d, limit: e.target.value }))} />
+                  <input className="input w-28" type="number" placeholder="Balance" value={cardDraft.currentBalance} onChange={e => setCardDraft(d => ({ ...d, currentBalance: e.target.value }))} />
+                  <input className="input w-24" type="number" min="1" max="31" placeholder="Stmt day" value={cardDraft.statementDay} onChange={e => setCardDraft(d => ({ ...d, statementDay: e.target.value }))} />
+                  <input className="input w-24" type="number" min="1" max="31" placeholder="Due day" value={cardDraft.dueDay} onChange={e => setCardDraft(d => ({ ...d, dueDay: e.target.value }))} />
+                  <button onClick={saveCardEdit} className="btn-primary p-2"><Check size={14} /></button>
+                  <button onClick={() => setEditingCardId(null)} className="btn-secondary p-2"><X size={14} /></button>
+                </div>
+              );
+            }
+
+            return (
+              <div key={c.id} className="flex items-center justify-between gap-4 bg-slate-800/40 rounded-xl p-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.color + '20' }}>
+                    <CreditCardIcon size={16} style={{ color: c.color }} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm text-white font-medium truncate">{c.name}</div>
+                    <div className="text-xs text-slate-500">
+                      Statement day {c.statementDay} · Due day {c.dueDay}
+                      {dueSoon && <span className="text-amber-400 ml-1.5">· due in {daysUntilDue}d</span>}
+                    </div>
+                  </div>
+                </div>
+                <div className="w-40 shrink-0">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-400">{formatCurrency(c.currentBalance)}</span>
+                    <span className="text-slate-500">of {formatCurrency(c.limit)}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${utilization}%`, background: utilization > 80 ? '#f43f5e' : c.color }} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => startEditCard(c)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-white transition-colors">
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={() => deleteCreditCard(c.id)} className="p-1.5 rounded-lg hover:bg-rose-500/15 text-slate-500 hover:text-rose-400 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {showAddCard && (
+            <div className="flex items-center gap-2 bg-slate-800/60 rounded-xl p-3">
+              <input className="input flex-1" placeholder="Card name" value={newCard.name} onChange={e => setNewCard(d => ({ ...d, name: e.target.value }))} />
+              <input className="input w-28" type="number" placeholder="Limit" value={newCard.limit} onChange={e => setNewCard(d => ({ ...d, limit: e.target.value }))} />
+              <input className="input w-28" type="number" placeholder="Balance" value={newCard.currentBalance} onChange={e => setNewCard(d => ({ ...d, currentBalance: e.target.value }))} />
+              <input className="input w-24" type="number" min="1" max="31" placeholder="Stmt day" value={newCard.statementDay} onChange={e => setNewCard(d => ({ ...d, statementDay: e.target.value }))} />
+              <input className="input w-24" type="number" min="1" max="31" placeholder="Due day" value={newCard.dueDay} onChange={e => setNewCard(d => ({ ...d, dueDay: e.target.value }))} />
+              <button onClick={submitNewCard} className="btn-primary p-2"><Check size={14} /></button>
+              <button onClick={() => setShowAddCard(false)} className="btn-secondary p-2"><X size={14} /></button>
             </div>
           )}
         </div>

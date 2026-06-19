@@ -98,6 +98,14 @@ export interface Investment {
   purchaseHistory?: PurchaseRecord[];
 }
 
+export type ResidencyStatus = 'citizen' | 'pr' | 'foreigner';
+
+export interface AllocationTargets {
+  savingsPct: number;
+  expensesPct: number;
+  investmentsPct: number;
+}
+
 export interface UserProfile {
   name: string;
   currency: string;
@@ -107,6 +115,19 @@ export interface UserProfile {
   retirementAge: number;
   riskTolerance: 'conservative' | 'moderate' | 'aggressive';
   monthlySavingsTarget: number;
+  residencyStatus?: ResidencyStatus;
+  prStartDate?: string; // YYYY-MM-DD; only set when residencyStatus === 'pr', used to determine the CPF graduated-rate year
+  allocationTargets?: AllocationTargets;
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  limit: number;
+  currentBalance: number;
+  statementDay: number; // 1-31, day of month the statement is generated
+  dueDay: number; // 1-31, day of month payment is due
+  color: string;
 }
 
 export interface NetWorthSnapshot {

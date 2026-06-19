@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ArrowLeftRight, PieChart, CreditCard,
-  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet
+  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet, Settings
 } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { supabase } from '../../lib/supabase';
@@ -17,7 +17,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar() {
-  const { activeView, setActiveView, profile } = useFinanceStore();
+  const { activeView, setActiveView, profile, reopenOnboarding } = useFinanceStore();
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen">
@@ -36,14 +36,23 @@ export default function Sidebar() {
 
       {/* User */}
       <div className="px-5 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold">
-            {profile.name.charAt(0).toUpperCase()}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+              {profile.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-white truncate">{profile.name}</div>
+              <div className="text-xs text-emerald-400">{profile.currencySymbol}{profile.monthlyIncome.toLocaleString()} / mo</div>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-medium text-white">{profile.name}</div>
-            <div className="text-xs text-emerald-400">{profile.currencySymbol}{profile.monthlyIncome.toLocaleString()} / mo</div>
-          </div>
+          <button
+            onClick={reopenOnboarding}
+            title="Edit financial profile setup"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
+          >
+            <Settings size={15} />
+          </button>
         </div>
       </div>
 
