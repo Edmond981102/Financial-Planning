@@ -3,7 +3,6 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download, RefreshCw } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
-import { getTotalInvestmentValue, getTotalInvestmentCost, getInvestmentReturn } from '../utils/calculations';
 import { Investment, InvestmentType, AutoInvestConfig, InvestmentPlatform, PurchaseRecord } from '../types';
 
 // Computes the next date an auto-invest contribution is due, after `from`.
@@ -246,10 +245,18 @@ export default function Investments() {
     return formatCurrency(usdAmount);
   }
 
+  // Tiger Brokers and Coinbase holdings are already priced in SGD (or, for the few true-USD
+  // stocks/crypto among them, close enough not to need FX). Only StashAway's underlying ETFs
+  // are priced in true USD, so only StashAway amounts get converted before being summed/shown.
+  function toSgd(amount: number, platform?: InvestmentPlatform): number {
+    if (platform === 'StashAway' && usdSgdRate) return amount * usdSgdRate;
+    return amount;
+  }
+
   // Portfolio totals are shown in SGD by default; individual platform cards below keep their own currency.
-  function formatSgd(usdAmount: number): string {
-    if (usdSgdRate) return formatCurrency(usdAmount * usdSgdRate, 'S$');
-    return formatCurrency(usdAmount);
+  // Amounts passed in here are expected to already be SGD (via toSgd) — this just formats them.
+  function formatSgd(sgdAmount: number): string {
+    return formatCurrency(sgdAmount, 'S$');
   }
 
   // Auto-refresh live prices on page load, then every 15 minutes while this page stays open —
@@ -318,22 +325,22 @@ export default function Investments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const totalValue = getTotalInvestmentValue(investments);
-  const totalCost = getTotalInvestmentCost(investments);
+  const totalValue = investments.reduce((sum, inv) => sum + toSgd(inv.units * inv.currentPrice, inv.platform), 0);
+  const totalCost = investments.reduce((sum, inv) => sum + toSgd(inv.units * inv.buyPrice, inv.platform), 0);
   const totalReturn = totalValue - totalCost;
-  const returnPct = getInvestmentReturn(investments);
+  const returnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0;
 
   const allocationData = investments.map(inv => ({
     name: inv.ticker || inv.name,
-    value: inv.units * inv.currentPrice,
+    value: toSgd(inv.units * inv.currentPrice, inv.platform),
     color: inv.color,
   }));
 
   const performanceData = investments.map(inv => ({
     name: inv.ticker || inv.name.substring(0, 8),
-    cost: inv.units * inv.buyPrice,
-    value: inv.units * inv.currentPrice,
-    gain: inv.units * inv.currentPrice - inv.units * inv.buyPrice,
+    cost: toSgd(inv.units * inv.buyPrice, inv.platform),
+    value: toSgd(inv.units * inv.currentPrice, inv.platform),
+    gain: toSgd(inv.units * inv.currentPrice, inv.platform) - toSgd(inv.units * inv.buyPrice, inv.platform),
   }));
 
   const platformGroups = PLATFORM_ORDER.map(platform => {
@@ -568,7 +575,7 @@ export default function Investments() {
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={performanceData} barGap={4}>
               <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `S$${((v * (usdSgdRate || 1)) / 1000).toFixed(0)}k`} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `S$${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: number, n: string) => [formatSgd(v), n === 'cost' ? 'Cost' : 'Value']} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', fontSize: '12px' }} />
               <Bar dataKey="cost" name="Cost" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
               <Bar dataKey="value" name="Value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
