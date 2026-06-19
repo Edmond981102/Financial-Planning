@@ -145,6 +145,9 @@ const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
 
 const PLATFORM_ORDER: InvestmentPlatform[] = ['Tiger Brokers', 'Coinbase', 'StashAway', 'Other'];
 
+// Platforms actually covered by REAL_HOLDINGS, in display order, for the Import modal's per-platform toggles.
+const IMPORT_PLATFORMS = PLATFORM_ORDER.filter(p => REAL_HOLDINGS.some(h => h.platform === p));
+
 const TYPE_LABELS: Record<InvestmentType, string> = {
   stock: 'Stock', etf: 'ETF', crypto: 'Crypto', mutual_fund: 'Mutual Fund',
   bond: 'Bond', real_estate: 'Real Estate', gold: 'Gold', other: 'Other',
@@ -209,6 +212,9 @@ export default function Investments() {
   const [form, setForm] = useState<InvForm>(emptyForm);
   const [showImportModal, setShowImportModal] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(true);
+  const [importPlatforms, setImportPlatforms] = useState<Set<InvestmentPlatform>>(
+    () => new Set(IMPORT_PLATFORMS)
+  );
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [lastSynced, setLastSynced] = useState<string | null>(null);
@@ -438,10 +444,19 @@ export default function Investments() {
 
   function handleImport() {
     if (replaceExisting) {
-      investments.forEach(inv => deleteInvestment(inv.id));
+      investments.filter(inv => importPlatforms.has(inv.platform ?? 'Other')).forEach(inv => deleteInvestment(inv.id));
     }
-    REAL_HOLDINGS.forEach(h => addInvestment(h));
+    REAL_HOLDINGS.filter(h => importPlatforms.has(h.platform ?? 'Other')).forEach(h => addInvestment(h));
     setShowImportModal(false);
+  }
+
+  function toggleImportPlatform(platform: InvestmentPlatform) {
+    setImportPlatforms(prev => {
+      const next = new Set(prev);
+      if (next.has(platform)) next.delete(platform);
+      else next.add(platform);
+      return next;
+    });
   }
 
   return (
@@ -786,16 +801,37 @@ export default function Investments() {
               <h2 className="text-lg font-bold text-white">Import My Holdings</h2>
               <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
-            <p className="text-sm text-slate-400 mb-4">
-              This will add your {REAL_HOLDINGS.length} real holdings from StashAway, Tiger Brokers, and Coinbase (XRP) into your portfolio.
+            <p className="text-sm text-slate-400 mb-3">
+              Choose which platform(s) to import. Only the holdings for the checked platform(s) will be added (and removed first, if selected below).
             </p>
+            <div className="space-y-2 mb-4">
+              {IMPORT_PLATFORMS.map(platform => {
+                const count = REAL_HOLDINGS.filter(h => h.platform === platform).length;
+                return (
+                  <label key={platform} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={importPlatforms.has(platform)}
+                      onChange={() => toggleImportPlatform(platform)}
+                      className="w-4 h-4"
+                    />
+                    {platform} <span className="text-slate-500">({count} holding{count === 1 ? '' : 's'})</span>
+                  </label>
+                );
+              })}
+            </div>
             <label className="flex items-center gap-2 text-sm text-slate-300 mb-5 cursor-pointer">
               <input type="checkbox" checked={replaceExisting} onChange={e => setReplaceExisting(e.target.checked)} className="w-4 h-4" />
-              Remove the {investments.length} existing investment(s) first
+              Remove existing investment(s) for the checked platform(s) first
+              ({investments.filter(inv => importPlatforms.has(inv.platform ?? 'Other')).length})
             </label>
             <div className="flex gap-3">
               <button onClick={() => setShowImportModal(false)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={handleImport} className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <button
+                onClick={handleImport}
+                disabled={importPlatforms.size === 0}
+                className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Download size={15} /> Import
               </button>
             </div>
