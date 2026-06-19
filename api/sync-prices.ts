@@ -47,7 +47,9 @@ async function fetchCryptoPrices(tickers: string[]): Promise<Record<string, numb
   if (tickers.length === 0) return prices;
   try {
     const ids = Array.from(new Set(tickers.map(t => CRYPTO_ID_MAP[t])));
-    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`);
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
     if (!r.ok) return prices;
     const data = await r.json();
     for (const ticker of tickers) {

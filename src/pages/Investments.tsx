@@ -370,16 +370,19 @@ export default function Investments() {
     setSyncError('');
     try {
       const ids = Array.from(new Set(cryptoHoldings.map(h => CRYPTO_ID_MAP[h.ticker!.toUpperCase()])));
-      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`);
+      const res = await fetch(`/api/crypto-quote?ids=${ids.map(encodeURIComponent).join(',')}`);
       if (!res.ok) throw new Error('Price service unavailable, try again later.');
       const data = await res.json();
+      const unresolved: string[] = [];
       cryptoHoldings.forEach(h => {
         const price = data[CRYPTO_ID_MAP[h.ticker!.toUpperCase()]]?.usd;
         if (typeof price === 'number') updateInvestment(h.id, { currentPrice: price });
+        else unresolved.push(h.ticker!);
       });
       setLastSynced(new Date().toLocaleTimeString());
+      setSyncError(unresolved.length > 0 ? `Couldn't get a live price for: ${unresolved.join(', ')}.` : '');
     } catch (err) {
-      setSyncError(err instanceof Error ? err.message : 'Failed to sync prices.');
+      setSyncError(err instanceof Error ? err.message : 'Failed to sync prices. (Live crypto sync only works on the deployed Vercel site, not local dev.)');
     } finally {
       setSyncing(false);
     }
