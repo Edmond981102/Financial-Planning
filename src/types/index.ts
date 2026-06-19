@@ -79,6 +79,7 @@ export interface PurchaseRecord {
   units: number; // units bought in this transaction
   amount: number; // price * units (kept explicit since real statements report this directly)
   currency?: 'USD' | 'SGD'; // defaults to USD; set when the record is kept in its original statement currency
+  fee?: number; // broker commission charged on top of amount, in the same currency; not included in amount
 }
 
 export interface Investment {

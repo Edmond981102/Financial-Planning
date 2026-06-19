@@ -138,7 +138,7 @@ const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
   { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 298.43, purchaseDate: '2026-01-02', color: '#6366f1', platform: 'Tiger Brokers', notes: 'Tiger Brokers auto-invest: USD 2 every Thursday.', autoInvest: { amountUsd: 2, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' }, purchaseHistory: [{ date: '2026-01-02', price: 221.15, units: 1.25364, amount: 277.20 }] },
   { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.10369, buyPrice: 241.05, currentPrice: 324.38, purchaseDate: '2026-05-20', color: '#ef4444', platform: 'Tiger Brokers', notes: 'Tiger Brokers auto-invest: USD 5 every Wednesday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 3, lastAppliedDate: '2026-06-18' }, purchaseHistory: [{ date: '2026-05-20', price: 241.05, units: 0.10369, amount: 24.99 }] },
   { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 121.58, currentPrice: 209.38, purchaseDate: '2026-01-02', color: '#10b981', platform: 'Tiger Brokers', notes: 'Tiger Brokers auto-invest: USD 5 every Thursday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' }, purchaseHistory: [{ date: '2026-01-02', price: 121.58, units: 3.03564, amount: 369.07 }] },
-  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 205.87, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6', platform: 'Tiger Brokers', purchaseHistory: [{ date: '2026-06-16', price: 205.87, units: 2, amount: 411.74 }] },
+  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 206.96, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6', platform: 'Tiger Brokers', notes: 'Tiger Brokers stock. Average Filled Price was $205.87/share (Filled Amount $411.74); average cost above includes a $2.18 brokerage commission, matching Tiger\'s portfolio view.', purchaseHistory: [{ date: '2026-06-16', price: 205.87, units: 2, amount: 411.74, fee: 2.18 }] },
   // Coinbase - crypto
   { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.21, purchaseDate: '2026-02-05', color: '#f59e0b', platform: 'Coinbase', notes: 'Bought via Coinbase for S$500. Price from Coinbase, updated 2026-06-18 — check Coinbase for the latest.', purchaseHistory: [{ date: '2026-02-05', price: 1.47, units: 265.02, amount: 389.58 }] },
 ];
@@ -567,6 +567,8 @@ export default function Investments() {
         const chartData = history.map(r => ({ date: formatDate(r.date), price: r.price }));
         const fmtPrice = (r: PurchaseRecord) => r.currency === 'SGD' ? `S$${r.price.toFixed(4)}` : formatCurrency(r.price);
         const fmtAmount = (r: PurchaseRecord) => r.currency === 'SGD' ? `S$${r.amount.toFixed(2)}` : formatCurrency(r.amount);
+        const fmtFee = (r: PurchaseRecord) => r.currency === 'SGD' ? `S$${(r.fee || 0).toFixed(2)}` : formatCurrency(r.fee || 0);
+        const hasFees = history.some(r => r.fee);
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setDetailId(null)}>
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl mx-4 p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -653,6 +655,7 @@ export default function Investments() {
                       <th className="text-right text-slate-500 font-medium px-3 py-2">Price</th>
                       <th className="text-right text-slate-500 font-medium px-3 py-2">Units</th>
                       <th className="text-right text-slate-500 font-medium px-3 py-2">Amount</th>
+                      {hasFees && <th className="text-right text-slate-500 font-medium px-3 py-2">Fee</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -662,6 +665,7 @@ export default function Investments() {
                         <td className="px-3 py-2 text-right text-slate-300">{fmtPrice(r)}</td>
                         <td className="px-3 py-2 text-right text-slate-300">{r.units}</td>
                         <td className="px-3 py-2 text-right text-slate-300">{fmtAmount(r)}</td>
+                        {hasFees && <td className="px-3 py-2 text-right text-slate-400">{r.fee ? fmtFee(r) : '—'}</td>}
                       </tr>
                     ))}
                   </tbody>
