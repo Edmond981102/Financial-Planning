@@ -71,6 +71,8 @@ export interface AutoInvestConfig {
   lastAppliedDate: string; // YYYY-MM-DD; the last occurrence already reflected in units/buyPrice
 }
 
+export type InvestmentPlatform = 'Tiger Brokers' | 'Coinbase' | 'StashAway' | 'Other';
+
 export interface Investment {
   id: string;
   name: string;
@@ -83,6 +85,7 @@ export interface Investment {
   notes?: string;
   color: string;
   autoInvest?: AutoInvestConfig;
+  platform?: InvestmentPlatform;
 }
 
 export interface UserProfile {

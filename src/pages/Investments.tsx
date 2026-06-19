@@ -4,7 +4,7 @@ import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download, Refr
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
 import { getTotalInvestmentValue, getTotalInvestmentCost, getInvestmentReturn } from '../utils/calculations';
-import { Investment, InvestmentType, AutoInvestConfig } from '../types';
+import { Investment, InvestmentType, AutoInvestConfig, InvestmentPlatform } from '../types';
 
 // Computes the next date an auto-invest contribution is due, after `from`.
 function nextAutoInvestOccurrence(from: Date, config: AutoInvestConfig): Date {
@@ -24,30 +24,32 @@ function nextAutoInvestOccurrence(from: Date, config: AutoInvestConfig): Date {
 // statement's 0.7799 SGD->USD rate), and Coinbase (XRP buy on 5 Feb 2026).
 const REAL_HOLDINGS: Omit<Investment, 'id'>[] = [
   // StashAway Flexible Portfolio (reported natively in USD)
-  { name: 'First Trust NASDAQ Clean Edge Smart Grid Infrastructure (GRID)', ticker: 'GRID', type: 'etf', units: 6.4707, buyPrice: 190.99, currentPrice: 193.07, purchaseDate: '2026-05-01', color: '#10b981', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement (no full lifetime cost basis available).' },
-  { name: 'Consumer Discretionary Select Sector SPDR (XLY)', ticker: 'XLY', type: 'etf', units: 3.1296, buyPrice: 118.37, currentPrice: 120.87, purchaseDate: '2026-05-01', color: '#3b82f6', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'VanEck Environmental Services ETF (EVX)', ticker: 'EVX', type: 'etf', units: 28.0577, buyPrice: 40.52, currentPrice: 38.83, purchaseDate: '2026-05-01', color: '#f59e0b', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'VanEck Semiconductor ETF (SMH)', ticker: 'SMH', type: 'etf', units: 2.0157, buyPrice: 492.74, currentPrice: 598.93, purchaseDate: '2026-05-01', color: '#8b5cf6', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'First Trust Water ETF (FIW)', ticker: 'FIW', type: 'etf', units: 7.0031, buyPrice: 106.99, currentPrice: 103.74, purchaseDate: '2026-05-01', color: '#06b6d4', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'SPDR Gold MiniShares Trust (GLDM)', ticker: 'GLDM', type: 'etf', units: 11.7943, buyPrice: 91.44, currentPrice: 89.93, purchaseDate: '2026-05-01', color: '#ef4444', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'iShares Global Healthcare ETF (IXJ)', ticker: 'IXJ', type: 'etf', units: 8.0062, buyPrice: 92.84, currentPrice: 94.50, purchaseDate: '2026-05-01', color: '#ec4899', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'iShares US Aggregate Bond UCITS ETF (IUAG)', ticker: 'IUAG', type: 'etf', units: 3.9254, buyPrice: 94.84, currentPrice: 93.31, purchaseDate: '2026-05-01', color: '#84cc16', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
-  { name: 'iShares Core S&P 500 ETF (IVV)', ticker: 'IVV', type: 'etf', units: 0.9254, buyPrice: 722.09, currentPrice: 760.05, purchaseDate: '2026-05-01', color: '#10b981', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'First Trust NASDAQ Clean Edge Smart Grid Infrastructure (GRID)', ticker: 'GRID', type: 'etf', units: 6.4707, buyPrice: 190.99, currentPrice: 193.07, purchaseDate: '2026-05-01', color: '#10b981', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement (no full lifetime cost basis available).' },
+  { name: 'Consumer Discretionary Select Sector SPDR (XLY)', ticker: 'XLY', type: 'etf', units: 3.1296, buyPrice: 118.37, currentPrice: 120.87, purchaseDate: '2026-05-01', color: '#3b82f6', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'VanEck Environmental Services ETF (EVX)', ticker: 'EVX', type: 'etf', units: 28.0577, buyPrice: 40.52, currentPrice: 38.83, purchaseDate: '2026-05-01', color: '#f59e0b', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'VanEck Semiconductor ETF (SMH)', ticker: 'SMH', type: 'etf', units: 2.0157, buyPrice: 492.74, currentPrice: 598.93, purchaseDate: '2026-05-01', color: '#8b5cf6', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'First Trust Water ETF (FIW)', ticker: 'FIW', type: 'etf', units: 7.0031, buyPrice: 106.99, currentPrice: 103.74, purchaseDate: '2026-05-01', color: '#06b6d4', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'SPDR Gold MiniShares Trust (GLDM)', ticker: 'GLDM', type: 'etf', units: 11.7943, buyPrice: 91.44, currentPrice: 89.93, purchaseDate: '2026-05-01', color: '#ef4444', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'iShares Global Healthcare ETF (IXJ)', ticker: 'IXJ', type: 'etf', units: 8.0062, buyPrice: 92.84, currentPrice: 94.50, purchaseDate: '2026-05-01', color: '#ec4899', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'iShares US Aggregate Bond UCITS ETF (IUAG)', ticker: 'IUAG', type: 'etf', units: 3.9254, buyPrice: 94.84, currentPrice: 93.31, purchaseDate: '2026-05-01', color: '#84cc16', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
+  { name: 'iShares Core S&P 500 ETF (IVV)', ticker: 'IVV', type: 'etf', units: 0.9254, buyPrice: 722.09, currentPrice: 760.05, purchaseDate: '2026-05-01', color: '#10b981', platform: 'StashAway', notes: 'StashAway Flexible Portfolio. Cost is estimated from the monthly statement.' },
   // Tiger Brokers - unit trusts (originally priced in SGD, converted to USD)
-  { name: 'Eastspring Japan Dynamic AS (SGDHDG)', type: 'mutual_fund', units: 200.638, buyPrice: 25.65, currentPrice: 43.15, purchaseDate: '2026-01-06', color: '#3b82f6', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$32.89, current S$55.32/unit).' },
-  { name: 'Schroder ISF Global Gold A (SGDHDG)', type: 'mutual_fund', units: 4.17, buyPrice: 261.48, currentPrice: 385.14, purchaseDate: '2026-01-01', color: '#f59e0b', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$335.27, current S$493.83/unit).' },
-  { name: 'Abrdn Global Technology (SGD)', type: 'mutual_fund', units: 2936.34, buyPrice: 1.59, currentPrice: 2.39, purchaseDate: '2026-01-05', color: '#8b5cf6', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$2.04, current S$3.06/unit).' },
-  { name: 'UOB United e-Commerce (SGD)', type: 'mutual_fund', units: 6458.26, buyPrice: 0.82, currentPrice: 1.30, purchaseDate: '2026-01-05', color: '#06b6d4', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$1.05, current S$1.66/unit).' },
-  { name: 'LionGlobal Singapore Trust (SGD)', type: 'mutual_fund', units: 199.58, buyPrice: 4.30, currentPrice: 5.24, purchaseDate: '2026-01-01', color: '#ec4899', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$5.51, current S$6.72/unit).' },
+  { name: 'Eastspring Japan Dynamic AS (SGDHDG)', type: 'mutual_fund', units: 200.638, buyPrice: 25.65, currentPrice: 43.15, purchaseDate: '2026-01-06', color: '#3b82f6', platform: 'Tiger Brokers', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$32.89, current S$55.32/unit).' },
+  { name: 'Schroder ISF Global Gold A (SGDHDG)', type: 'mutual_fund', units: 4.17, buyPrice: 261.48, currentPrice: 385.14, purchaseDate: '2026-01-01', color: '#f59e0b', platform: 'Tiger Brokers', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$335.27, current S$493.83/unit).' },
+  { name: 'Abrdn Global Technology (SGD)', type: 'mutual_fund', units: 2936.34, buyPrice: 1.59, currentPrice: 2.39, purchaseDate: '2026-01-05', color: '#8b5cf6', platform: 'Tiger Brokers', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$2.04, current S$3.06/unit).' },
+  { name: 'UOB United e-Commerce (SGD)', type: 'mutual_fund', units: 6458.26, buyPrice: 0.82, currentPrice: 1.30, purchaseDate: '2026-01-05', color: '#06b6d4', platform: 'Tiger Brokers', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$1.05, current S$1.66/unit).' },
+  { name: 'LionGlobal Singapore Trust (SGD)', type: 'mutual_fund', units: 199.58, buyPrice: 4.30, currentPrice: 5.24, purchaseDate: '2026-01-01', color: '#ec4899', platform: 'Tiger Brokers', notes: 'Tiger Brokers unit trust. Originally priced in SGD (cost S$5.51, current S$6.72/unit).' },
   // Tiger Brokers - stocks
-  { name: 'WinkingStudios', ticker: 'WKS.SI', type: 'stock', units: 200, buyPrice: 0.156, currentPrice: 0.1599, purchaseDate: '2023-12-03', color: '#84cc16', notes: 'Tiger Brokers stock. Filled buy order: 200 shares @ limit S$0.200 on 2023-12-03 (an earlier S$0.200 order that day was cancelled).' },
-  { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 298.43, purchaseDate: '2026-01-02', color: '#6366f1', notes: 'Tiger Brokers auto-invest: USD 2 every Thursday.', autoInvest: { amountUsd: 2, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' } },
-  { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.10369, buyPrice: 241.05, currentPrice: 324.38, purchaseDate: '2026-05-20', color: '#ef4444', notes: 'Tiger Brokers auto-invest: USD 5 every Wednesday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 3, lastAppliedDate: '2026-06-18' } },
-  { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 121.58, currentPrice: 209.38, purchaseDate: '2026-01-02', color: '#10b981', notes: 'Tiger Brokers auto-invest: USD 5 every Thursday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' } },
-  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 205.87, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6' },
+  { name: 'WinkingStudios', ticker: 'WKS.SI', type: 'stock', units: 200, buyPrice: 0.156, currentPrice: 0.1599, purchaseDate: '2023-12-03', color: '#84cc16', platform: 'Tiger Brokers', notes: 'Tiger Brokers stock. Filled buy order: 200 shares @ limit S$0.200 on 2023-12-03 (an earlier S$0.200 order that day was cancelled).' },
+  { name: 'Apple Inc.', ticker: 'AAPL', type: 'stock', units: 1.25364, buyPrice: 221.15, currentPrice: 298.43, purchaseDate: '2026-01-02', color: '#6366f1', platform: 'Tiger Brokers', notes: 'Tiger Brokers auto-invest: USD 2 every Thursday.', autoInvest: { amountUsd: 2, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' } },
+  { name: 'Marvell Technology', ticker: 'MRVL', type: 'stock', units: 0.10369, buyPrice: 241.05, currentPrice: 324.38, purchaseDate: '2026-05-20', color: '#ef4444', platform: 'Tiger Brokers', notes: 'Tiger Brokers auto-invest: USD 5 every Wednesday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 3, lastAppliedDate: '2026-06-18' } },
+  { name: 'NVIDIA Corp', ticker: 'NVDA', type: 'stock', units: 3.03564, buyPrice: 121.58, currentPrice: 209.38, purchaseDate: '2026-01-02', color: '#10b981', platform: 'Tiger Brokers', notes: 'Tiger Brokers auto-invest: USD 5 every Thursday.', autoInvest: { amountUsd: 5, frequency: 'weekly', dayOfWeek: 4, lastAppliedDate: '2026-06-18' } },
+  { name: 'SpaceX', ticker: 'SPCX', type: 'stock', units: 2, buyPrice: 205.87, currentPrice: 179.88, purchaseDate: '2026-06-16', color: '#3b82f6', platform: 'Tiger Brokers' },
   // Coinbase - crypto
-  { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.21, purchaseDate: '2026-02-05', color: '#f59e0b', notes: 'Bought via Coinbase for S$500. Price from Coinbase, updated 2026-06-18 — check Coinbase for the latest.' },
+  { name: 'XRP', ticker: 'XRP', type: 'crypto', units: 265.02, buyPrice: 1.47, currentPrice: 1.21, purchaseDate: '2026-02-05', color: '#f59e0b', platform: 'Coinbase', notes: 'Bought via Coinbase for S$500. Price from Coinbase, updated 2026-06-18 — check Coinbase for the latest.' },
 ];
+
+const PLATFORM_ORDER: InvestmentPlatform[] = ['Tiger Brokers', 'Coinbase', 'StashAway', 'Other'];
 
 const TYPE_LABELS: Record<InvestmentType, string> = {
   stock: 'Stock', etf: 'ETF', crypto: 'Crypto', mutual_fund: 'Mutual Fund',
@@ -72,12 +74,13 @@ interface InvForm {
   name: string; type: InvestmentType; ticker: string;
   units: string; buyPrice: string; currentPrice: string;
   purchaseDate: string; notes: string; color: string;
+  platform: InvestmentPlatform;
 }
 
 const emptyForm: InvForm = {
   name: '', type: 'stock', ticker: '', units: '',
   buyPrice: '', currentPrice: '', purchaseDate: '',
-  notes: '', color: '#3b82f6',
+  notes: '', color: '#3b82f6', platform: 'Other',
 };
 
 export default function Investments() {
@@ -158,6 +161,13 @@ export default function Investments() {
     gain: inv.units * inv.currentPrice - inv.units * inv.buyPrice,
   }));
 
+  const platformGroups = PLATFORM_ORDER.map(platform => {
+    const holdings = investments.filter(inv => (inv.platform || 'Other') === platform);
+    const value = holdings.reduce((sum, inv) => sum + inv.units * inv.currentPrice, 0);
+    const cost = holdings.reduce((sum, inv) => sum + inv.units * inv.buyPrice, 0);
+    return { platform, holdings, value, cost, gain: value - cost };
+  }).filter(g => g.holdings.length > 0);
+
   function openAdd() {
     setForm(emptyForm);
     setEditId(null);
@@ -169,7 +179,7 @@ export default function Investments() {
       name: inv.name, type: inv.type, ticker: inv.ticker || '',
       units: String(inv.units), buyPrice: String(inv.buyPrice),
       currentPrice: String(inv.currentPrice), purchaseDate: inv.purchaseDate,
-      notes: inv.notes || '', color: inv.color,
+      notes: inv.notes || '', color: inv.color, platform: inv.platform || 'Other',
     });
     setEditId(inv.id);
     setShowModal(true);
@@ -181,7 +191,7 @@ export default function Investments() {
       name: form.name, type: form.type, ticker: form.ticker || undefined,
       units: parseFloat(form.units), buyPrice: parseFloat(form.buyPrice),
       currentPrice: parseFloat(form.currentPrice), purchaseDate: form.purchaseDate,
-      notes: form.notes || undefined, color: form.color,
+      notes: form.notes || undefined, color: form.color, platform: form.platform,
     };
     if (editId) {
       updateInvestment(editId, payload);
@@ -362,79 +372,87 @@ export default function Investments() {
         </div>
       </div>
 
-      {/* Holdings Table */}
-      <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800">
-          <h2 className="text-sm font-semibold text-white">Holdings</h2>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-800">
-              <th className="text-left text-xs text-slate-500 font-medium px-5 py-3">Asset</th>
-              <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Type</th>
-              <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Units</th>
-              <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Buy Price</th>
-              <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Current</th>
-              <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Value</th>
-              <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Return</th>
-              <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {investments.map(inv => {
-              const value = inv.units * inv.currentPrice;
-              const cost = inv.units * inv.buyPrice;
-              const gain = value - cost;
-              const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
-              return (
-                <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: inv.color + '20', color: inv.color }}>
-                        {(inv.ticker || inv.name).charAt(0)}
-                      </div>
-                      <div>
-                        <div className="text-white font-medium text-xs flex items-center gap-1.5">
-                          {inv.name}
-                          {inv.autoInvest && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Auto</span>
-                          )}
+      {/* Holdings by Platform */}
+      {platformGroups.map(group => (
+        <div key={group.platform} className="card p-0 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">{group.platform}</h2>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="text-slate-500">{formatCurrency(group.value)} value</span>
+              <span className={`font-medium ${group.gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {group.gain >= 0 ? '+' : ''}{formatCurrency(group.gain)}
+              </span>
+            </div>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800">
+                <th className="text-left text-xs text-slate-500 font-medium px-5 py-3">Asset</th>
+                <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Type</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Units</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Buy Price</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Current</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Value</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Return</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {group.holdings.map(inv => {
+                const value = inv.units * inv.currentPrice;
+                const cost = inv.units * inv.buyPrice;
+                const gain = value - cost;
+                const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+                return (
+                  <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: inv.color + '20', color: inv.color }}>
+                          {(inv.ticker || inv.name).charAt(0)}
                         </div>
-                        {inv.ticker && <div className="text-slate-500 text-xs">{inv.ticker}</div>}
+                        <div>
+                          <div className="text-white font-medium text-xs flex items-center gap-1.5">
+                            {inv.name}
+                            {inv.autoInvest && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Auto</span>
+                            )}
+                          </div>
+                          {inv.ticker && <div className="text-slate-500 text-xs">{inv.ticker}</div>}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{TYPE_LABELS[inv.type]}</span>
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-300 text-xs">{inv.units}</td>
-                  <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.buyPrice)}</td>
-                  <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.currentPrice)}</td>
-                  <td className="px-4 py-3 text-right text-white font-medium text-xs">{formatCurrency(value)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className={`text-xs font-semibold ${gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
-                    </div>
-                    <div className={`text-xs ${gainPct >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
-                      {gainPct >= 0 ? '+' : ''}{formatPercent(gainPct)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(inv)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => deleteInvestment(inv.id)} className="p-1.5 rounded-lg hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 transition-colors">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{TYPE_LABELS[inv.type]}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs">{inv.units}</td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.buyPrice)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.currentPrice)}</td>
+                    <td className="px-4 py-3 text-right text-white font-medium text-xs">{formatCurrency(value)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className={`text-xs font-semibold ${gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
+                      </div>
+                      <div className={`text-xs ${gainPct >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
+                        {gainPct >= 0 ? '+' : ''}{formatPercent(gainPct)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(inv)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => deleteInvestment(inv.id)} className="p-1.5 rounded-lg hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ))}
 
       {/* Import Modal */}
       {showImportModal && (
@@ -491,6 +509,12 @@ export default function Investments() {
                   <label className="label">Purchase Date</label>
                   <input className="input" type="date" value={form.purchaseDate} onChange={e => setForm(f => ({ ...f, purchaseDate: e.target.value }))} />
                 </div>
+              </div>
+              <div>
+                <label className="label">Platform</label>
+                <select className="input" value={form.platform} onChange={e => setForm(f => ({ ...f, platform: e.target.value as InvestmentPlatform }))}>
+                  {PLATFORM_ORDER.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
