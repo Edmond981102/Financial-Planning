@@ -5,6 +5,7 @@ import { useFinanceStore } from '../../store/useFinanceStore';
 import { getCpfBreakdown } from '../../utils/cpf';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { ResidencyStatus, GoalCategory, UserProfile } from '../../types';
+import MoneyInput from '../common/MoneyInput';
 
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
@@ -188,7 +189,7 @@ export default function OnboardingWizard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Monthly income</label>
-                  <input className="input" type="number" min="0" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} />
+                  <MoneyInput className="input" value={monthlyIncome} onChange={(raw) => setMonthlyIncome(raw)} />
                 </div>
                 <div>
                   <label className="label">Date of birth</label>
@@ -203,7 +204,7 @@ export default function OnboardingWizard() {
                 </div>
                 <div>
                   <label className="label">Target retirement amount</label>
-                  <input className="input" type="number" min="0" placeholder="e.g. 1,000,000" value={retirementTargetAmount} onChange={(e) => setRetirementTargetAmount(e.target.value)} />
+                  <MoneyInput className="input" placeholder="e.g. 1,000,000" value={retirementTargetAmount} onChange={(raw) => setRetirementTargetAmount(raw)} />
                 </div>
               </div>
             </div>
@@ -277,9 +278,9 @@ export default function OnboardingWizard() {
               ))}
               <div className="grid grid-cols-2 gap-2">
                 <input className="input" placeholder="Goal name (e.g. Wedding)" value={goalDraft.name} onChange={(e) => setGoalDraft((d) => ({ ...d, name: e.target.value }))} />
-                <input className="input" type="number" placeholder="Target amount" value={goalDraft.targetAmount} onChange={(e) => setGoalDraft((d) => ({ ...d, targetAmount: e.target.value }))} />
+                <MoneyInput className="input" placeholder="Target amount" value={goalDraft.targetAmount} onChange={(raw) => setGoalDraft((d) => ({ ...d, targetAmount: raw }))} />
                 <input className="input" type="month" value={goalDraft.targetDate.slice(0, 7)} onChange={(e) => setGoalDraft((d) => ({ ...d, targetDate: `${e.target.value}-01` }))} />
-                <input className="input" type="number" placeholder="Monthly contribution (optional)" value={goalDraft.monthlyContribution} onChange={(e) => setGoalDraft((d) => ({ ...d, monthlyContribution: e.target.value }))} />
+                <MoneyInput className="input" placeholder="Monthly contribution (optional)" value={goalDraft.monthlyContribution} onChange={(raw) => setGoalDraft((d) => ({ ...d, monthlyContribution: raw }))} />
               </div>
               <button onClick={addGoalRow} className="btn-secondary flex items-center gap-1.5 text-xs">
                 <Plus size={13} /> Add goal
@@ -332,11 +333,11 @@ export default function OnboardingWizard() {
                 </div>
                 <div>
                   <label className="label">Credit limit</label>
-                  <input className="input" type="number" value={cardDraft.limit} onChange={(e) => setCardDraft((d) => ({ ...d, limit: e.target.value }))} />
+                  <MoneyInput className="input" value={cardDraft.limit} onChange={(raw) => setCardDraft((d) => ({ ...d, limit: raw }))} />
                 </div>
                 <div>
                   <label className="label">Current balance</label>
-                  <input className="input" type="number" value={cardDraft.currentBalance} onChange={(e) => setCardDraft((d) => ({ ...d, currentBalance: e.target.value }))} />
+                  <MoneyInput className="input" value={cardDraft.currentBalance} onChange={(raw) => setCardDraft((d) => ({ ...d, currentBalance: raw }))} />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

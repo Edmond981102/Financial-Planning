@@ -6,6 +6,7 @@ import { formatCurrency, formatPercent } from '../utils/formatters';
 import { getMonthExpenses, getMonthIncome, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
 import { format, subMonths, setDate, isBefore, addMonths, differenceInCalendarDays } from 'date-fns';
 import { CreditCard } from '../types';
+import MoneyInput from '../components/common/MoneyInput';
 
 const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
 
@@ -306,11 +307,10 @@ export default function Budget() {
                   </div>
                   <div className="flex items-center gap-4">
                     {editMode ? (
-                      <input
-                        type="number"
+                      <MoneyInput
                         className="input w-24 text-right py-1"
                         value={draftBudget[category] || ''}
-                        onChange={e => setDraftBudget(d => ({ ...d, [category]: e.target.value }))}
+                        onChange={raw => setDraftBudget(d => ({ ...d, [category]: raw }))}
                       />
                     ) : (
                       <span className="text-slate-500 text-xs">budget: {formatCurrency(budget)}</span>
@@ -350,12 +350,11 @@ export default function Budget() {
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
               />
-              <input
-                type="number"
+              <MoneyInput
                 placeholder="Amount"
                 className="input w-28 py-1.5 text-sm"
                 value={newCatAmount}
-                onChange={e => setNewCatAmount(e.target.value)}
+                onChange={raw => setNewCatAmount(raw)}
               />
               <button onClick={addCategory} className="btn-secondary py-1.5 px-3 flex items-center gap-1.5 shrink-0">
                 <Plus size={13} /> Add
@@ -394,11 +393,11 @@ export default function Budget() {
                   </div>
                   <div className="w-28">
                     <label className="label">Limit</label>
-                    <input className="input" type="number" value={cardDraft.limit} onChange={e => setCardDraft(d => ({ ...d, limit: e.target.value }))} />
+                    <MoneyInput className="input" value={cardDraft.limit} onChange={raw => setCardDraft(d => ({ ...d, limit: raw }))} />
                   </div>
                   <div className="w-28">
                     <label className="label">Balance</label>
-                    <input className="input" type="number" value={cardDraft.currentBalance} onChange={e => setCardDraft(d => ({ ...d, currentBalance: e.target.value }))} />
+                    <MoneyInput className="input" value={cardDraft.currentBalance} onChange={raw => setCardDraft(d => ({ ...d, currentBalance: raw }))} />
                   </div>
                   <div className="w-36">
                     <label className="label">Statement date</label>
@@ -467,11 +466,11 @@ export default function Budget() {
               </div>
               <div className="w-28">
                 <label className="label">Limit</label>
-                <input className="input" type="number" value={newCard.limit} onChange={e => setNewCard(d => ({ ...d, limit: e.target.value }))} />
+                <MoneyInput className="input" value={newCard.limit} onChange={raw => setNewCard(d => ({ ...d, limit: raw }))} />
               </div>
               <div className="w-28">
                 <label className="label">Balance</label>
-                <input className="input" type="number" value={newCard.currentBalance} onChange={e => setNewCard(d => ({ ...d, currentBalance: e.target.value }))} />
+                <MoneyInput className="input" value={newCard.currentBalance} onChange={raw => setNewCard(d => ({ ...d, currentBalance: raw }))} />
               </div>
               <div className="w-36">
                 <label className="label">Statement date</label>

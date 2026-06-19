@@ -6,6 +6,7 @@ import { getMonthlyAmount } from '../utils/calculations';
 import { Subscription, SubscriptionFrequency, SubscriptionPaymentMethod } from '../types';
 import { differenceInDays, parseISO, isBefore, startOfDay, format } from 'date-fns';
 import { guessLogoUrl } from '../utils/logos';
+import MoneyInput from '../components/common/MoneyInput';
 
 const SUB_COLORS = [
   '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444',
@@ -289,7 +290,7 @@ export default function Subscriptions() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Amount *</label>
-                  <input className="input" type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                  <MoneyInput className="input" placeholder="0.00" value={form.amount} onChange={raw => setForm(f => ({ ...f, amount: raw }))} />
                 </div>
                 <div>
                   <label className="label">Frequency</label>

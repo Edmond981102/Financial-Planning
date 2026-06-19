@@ -6,6 +6,7 @@ import { calculateGoalProgress, calculateMonthsToGoal } from '../utils/calculati
 import { getGoalStatus, GoalStatusLevel } from '../utils/advisor';
 import { SavingsGoal, GoalCategory } from '../types';
 import { addMonths, format } from 'date-fns';
+import MoneyInput from '../components/common/MoneyInput';
 
 const STATUS_STYLES: Record<GoalStatusLevel, string> = {
   completed: 'bg-emerald-500/10 text-emerald-400',
@@ -233,14 +234,11 @@ export default function Savings() {
               {/* Add Funds inline */}
               {addFundsId === goal.id && (
                 <div className="flex gap-2 pt-1 border-t border-slate-800">
-                  <input
+                  <MoneyInput
                     className="input flex-1"
-                    type="number"
-                    min="0"
-                    step="0.01"
                     placeholder={`Max: ${formatCurrency(remaining)}`}
                     value={fundsAmount}
-                    onChange={e => setFundsAmount(e.target.value)}
+                    onChange={raw => setFundsAmount(raw)}
                     autoFocus
                   />
                   <button onClick={handleAddFunds} className="btn-primary px-3 py-1.5"><Check size={14} /></button>
@@ -275,17 +273,17 @@ export default function Savings() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Target Amount *</label>
-                  <input className="input" type="number" min="0" placeholder="0.00" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} />
+                  <MoneyInput className="input" placeholder="0.00" value={form.targetAmount} onChange={raw => setForm(f => ({ ...f, targetAmount: raw }))} />
                 </div>
                 <div>
                   <label className="label">Current Amount</label>
-                  <input className="input" type="number" min="0" placeholder="0.00" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} />
+                  <MoneyInput className="input" placeholder="0.00" value={form.currentAmount} onChange={raw => setForm(f => ({ ...f, currentAmount: raw }))} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Monthly Contribution</label>
-                  <input className="input" type="number" min="0" placeholder="0.00" value={form.monthlyContribution} onChange={e => setForm(f => ({ ...f, monthlyContribution: e.target.value }))} />
+                  <MoneyInput className="input" placeholder="0.00" value={form.monthlyContribution} onChange={raw => setForm(f => ({ ...f, monthlyContribution: raw }))} />
                 </div>
                 <div>
                   <label className="label">Target Date</label>

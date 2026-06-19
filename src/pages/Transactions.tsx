@@ -3,6 +3,7 @@ import { Plus, Search, Filter, Trash2, Edit2, X, Check } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { format } from 'date-fns';
+import MoneyInput from '../components/common/MoneyInput';
 
 const EXPENSE_CATEGORIES = [
   'Housing', 'Food & Dining', 'Transport', 'Health', 'Entertainment',
@@ -243,7 +244,7 @@ export default function Transactions() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Amount *</label>
-                  <input className="input" type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                  <MoneyInput className="input" placeholder="0.00" value={form.amount} onChange={raw => setForm(f => ({ ...f, amount: raw }))} />
                 </div>
                 <div>
                   <label className="label">Date *</label>

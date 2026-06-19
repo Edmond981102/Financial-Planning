@@ -4,6 +4,7 @@ import { Flame, Shield, Home, TrendingUp, Edit2, Check } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatCompact } from '../utils/formatters';
 import { projectNetWorth, calculateFIRE, getTotalInvestmentValue } from '../utils/calculations';
+import MoneyInput from '../components/common/MoneyInput';
 
 export default function Planning() {
   const { profile, investments, savingsGoals, updateProfile } = useFinanceStore();
@@ -89,7 +90,7 @@ export default function Planning() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">Monthly Income</label>
-              <input className="input" type="number" value={profileDraft.monthlyIncome} onChange={e => setProfileDraft(p => ({ ...p, monthlyIncome: Number(e.target.value) }))} />
+              <MoneyInput className="input" value={profileDraft.monthlyIncome} onChange={raw => setProfileDraft(p => ({ ...p, monthlyIncome: Number(raw) || 0 }))} />
             </div>
             <div>
               <label className="label">Current Age</label>
@@ -101,11 +102,11 @@ export default function Planning() {
             </div>
             <div>
               <label className="label">Monthly Savings Target</label>
-              <input className="input" type="number" value={profileDraft.monthlySavingsTarget} onChange={e => setProfileDraft(p => ({ ...p, monthlySavingsTarget: Number(e.target.value) }))} />
+              <MoneyInput className="input" value={profileDraft.monthlySavingsTarget} onChange={raw => setProfileDraft(p => ({ ...p, monthlySavingsTarget: Number(raw) || 0 }))} />
             </div>
             <div>
               <label className="label">Target Retirement Amount</label>
-              <input className="input" type="number" value={profileDraft.retirementTargetAmount ?? ''} onChange={e => setProfileDraft(p => ({ ...p, retirementTargetAmount: e.target.value ? Number(e.target.value) : undefined }))} />
+              <MoneyInput className="input" value={profileDraft.retirementTargetAmount ?? ''} onChange={raw => setProfileDraft(p => ({ ...p, retirementTargetAmount: raw ? Number(raw) : undefined }))} />
             </div>
             <div>
               <label className="label">Risk Tolerance</label>
@@ -164,11 +165,10 @@ export default function Planning() {
             </div>
             <div>
               <label className="text-xs text-slate-400 mr-1.5">Monthly Contribution</label>
-              <input
+              <MoneyInput
                 className="input w-24 py-1 text-xs inline"
-                type="number"
                 value={fireInputs.monthlyContribution}
-                onChange={e => setFireInputs(f => ({ ...f, monthlyContribution: e.target.value }))}
+                onChange={raw => setFireInputs(f => ({ ...f, monthlyContribution: raw }))}
               />
             </div>
           </div>
@@ -206,11 +206,10 @@ export default function Planning() {
           <div className="space-y-3">
             <div>
               <label className="label">Annual Expenses (in retirement)</label>
-              <input
+              <MoneyInput
                 className="input"
-                type="number"
                 value={fireInputs.annualExpenses}
-                onChange={e => setFireInputs(f => ({ ...f, annualExpenses: e.target.value }))}
+                onChange={raw => setFireInputs(f => ({ ...f, annualExpenses: raw }))}
               />
             </div>
           </div>
