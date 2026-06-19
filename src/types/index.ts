@@ -73,6 +73,13 @@ export interface AutoInvestConfig {
 
 export type InvestmentPlatform = 'Tiger Brokers' | 'Coinbase' | 'StashAway' | 'Other';
 
+export interface PurchaseRecord {
+  date: string; // YYYY-MM-DD
+  price: number; // price per unit at this purchase, in the same currency as buyPrice/currentPrice
+  units: number; // units bought in this transaction
+  amount: number; // price * units (kept explicit since real statements report this directly)
+}
+
 export interface Investment {
   id: string;
   name: string;
@@ -86,6 +93,7 @@ export interface Investment {
   color: string;
   autoInvest?: AutoInvestConfig;
   platform?: InvestmentPlatform;
+  purchaseHistory?: PurchaseRecord[];
 }
 
 export interface UserProfile {

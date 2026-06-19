@@ -177,7 +177,7 @@ export const useFinanceStore = create<FinanceStore>()(
       addTransaction: (t) =>
         set((state) => ({
           transactions: [
-            { ...t, id: `tx-${Date.now()}` },
+            { ...t, id: `tx-${crypto.randomUUID()}` },
             ...state.transactions,
           ],
         })),
@@ -194,7 +194,7 @@ export const useFinanceStore = create<FinanceStore>()(
 
       addSubscription: (s) =>
         set((state) => ({
-          subscriptions: [...state.subscriptions, { ...s, id: `sub-${Date.now()}` }],
+          subscriptions: [...state.subscriptions, { ...s, id: `sub-${crypto.randomUUID()}` }],
         })),
       updateSubscription: (id, updates) =>
         set((state) => ({
@@ -250,7 +250,7 @@ export const useFinanceStore = create<FinanceStore>()(
 
       addSavingsGoal: (g) =>
         set((state) => ({
-          savingsGoals: [...state.savingsGoals, { ...g, id: `goal-${Date.now()}` }],
+          savingsGoals: [...state.savingsGoals, { ...g, id: `goal-${crypto.randomUUID()}` }],
         })),
       updateSavingsGoal: (id, updates) =>
         set((state) => ({
@@ -295,7 +295,7 @@ export const useFinanceStore = create<FinanceStore>()(
 
       addInvestment: (inv) =>
         set((state) => ({
-          investments: [...state.investments, { ...inv, id: `inv-${Date.now()}` }],
+          investments: [...state.investments, { ...inv, id: `inv-${crypto.randomUUID()}` }],
         })),
       updateInvestment: (id, updates) =>
         set((state) => ({
