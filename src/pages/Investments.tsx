@@ -226,10 +226,10 @@ export default function Investments() {
   const [stashAwayCurrency, setStashAwayCurrency] = useState<'USD' | 'SGD'>('USD');
   const [usdSgdRate, setUsdSgdRate] = useState<number | null>(null);
 
-  // Fetch the live USD->SGD rate the first time the StashAway view is switched to SGD
-  // (StashAway's own app reports balances in SGD; our stored data stays in USD either way).
+  // Fetch the live USD->SGD rate on page load — used to show the portfolio summary in SGD
+  // (your home currency) and to let StashAway holdings (stored in USD) display in SGD too.
   useEffect(() => {
-    if (stashAwayCurrency !== 'SGD' || usdSgdRate !== null) return;
+    if (usdSgdRate !== null) return;
     fetch('/api/quote?symbols=USDSGD=X')
       .then(res => res.json())
       .then(data => {
@@ -237,10 +237,16 @@ export default function Investments() {
         if (typeof rate === 'number') setUsdSgdRate(rate);
       })
       .catch(() => {});
-  }, [stashAwayCurrency, usdSgdRate]);
+  }, [usdSgdRate]);
 
   function formatStashAway(usdAmount: number): string {
     if (stashAwayCurrency === 'SGD' && usdSgdRate) return formatCurrency(usdAmount * usdSgdRate, 'S$');
+    return formatCurrency(usdAmount);
+  }
+
+  // Portfolio totals are shown in SGD by default; individual platform cards below keep their own currency.
+  function formatSgd(usdAmount: number): string {
+    if (usdSgdRate) return formatCurrency(usdAmount * usdSgdRate, 'S$');
     return formatCurrency(usdAmount);
   }
 
@@ -500,18 +506,18 @@ export default function Investments() {
       <div className="grid grid-cols-4 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Portfolio Value</div>
-          <div className="text-2xl font-bold text-white"><FlashValue value={totalValue} format={formatCurrency} /></div>
+          <div className="text-2xl font-bold text-white"><FlashValue value={totalValue} format={formatSgd} /></div>
           <div className="text-xs text-slate-500 mt-0.5">current market value</div>
         </div>
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Total Invested</div>
-          <div className="text-2xl font-bold text-white">{formatCurrency(totalCost)}</div>
+          <div className="text-2xl font-bold text-white">{formatSgd(totalCost)}</div>
           <div className="text-xs text-slate-500 mt-0.5">cost basis</div>
         </div>
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Total Return</div>
           <div className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            <FlashValue value={totalReturn} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
+            <FlashValue value={totalReturn} format={v => `${v >= 0 ? '+' : ''}${formatSgd(v)}`} />
           </div>
           <div className="text-xs text-slate-500 mt-0.5">unrealized P&L</div>
         </div>
@@ -535,7 +541,7 @@ export default function Investments() {
                 <Pie data={allocationData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value">
                   {allocationData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => [formatCurrency(v), '']} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', fontSize: '12px' }} />
+                <Tooltip formatter={(v: number) => [formatSgd(v), '']} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', fontSize: '12px' }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-2 flex-1">
@@ -546,7 +552,7 @@ export default function Investments() {
                     <span className="text-slate-400">{d.name}</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-slate-200 font-medium">{formatCurrency(d.value)}</div>
+                    <div className="text-slate-200 font-medium">{formatSgd(d.value)}</div>
                     <div className="text-slate-500">{totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) : 0}%</div>
                   </div>
                 </div>
@@ -560,8 +566,8 @@ export default function Investments() {
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={performanceData} barGap={4}>
               <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v / 1000}k`} />
-              <Tooltip formatter={(v: number, n: string) => [formatCurrency(v), n === 'cost' ? 'Cost' : 'Value']} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', fontSize: '12px' }} />
+              <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `S$${((v * (usdSgdRate || 1)) / 1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: number, n: string) => [formatSgd(v), n === 'cost' ? 'Cost' : 'Value']} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', fontSize: '12px' }} />
               <Bar dataKey="cost" name="Cost" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
               <Bar dataKey="value" name="Value" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
             </BarChart>
