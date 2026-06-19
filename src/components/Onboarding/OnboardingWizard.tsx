@@ -9,6 +9,16 @@ import { ResidencyStatus, GoalCategory, UserProfile } from '../../types';
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
 
+// Statement/due days are a recurring day-of-month (1-31), but a native date
+// picker is friendlier to fill in than a number stepper — so we render one
+// pinned to a fixed reference month and only read back the day component.
+function dayToDateInputValue(day: number): string {
+  return `2024-01-${String(Math.min(31, Math.max(1, day || 1))).padStart(2, '0')}`;
+}
+function dateInputValueToDay(value: string): number {
+  return Math.min(31, Math.max(1, parseInt(value.slice(-2), 10) || 1));
+}
+
 interface GoalDraft {
   name: string;
   targetAmount: string;
@@ -330,12 +340,22 @@ export default function OnboardingWizard() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="label">Statement day</label>
-                    <input className="input" type="number" min="1" max="31" value={cardDraft.statementDay} onChange={(e) => setCardDraft((d) => ({ ...d, statementDay: e.target.value }))} />
+                    <label className="label">Statement date</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={dayToDateInputValue(parseInt(cardDraft.statementDay, 10))}
+                      onChange={(e) => setCardDraft((d) => ({ ...d, statementDay: String(dateInputValueToDay(e.target.value)) }))}
+                    />
                   </div>
                   <div>
-                    <label className="label">Due day</label>
-                    <input className="input" type="number" min="1" max="31" value={cardDraft.dueDay} onChange={(e) => setCardDraft((d) => ({ ...d, dueDay: e.target.value }))} />
+                    <label className="label">Due date</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={dayToDateInputValue(parseInt(cardDraft.dueDay, 10))}
+                      onChange={(e) => setCardDraft((d) => ({ ...d, dueDay: String(dateInputValueToDay(e.target.value)) }))}
+                    />
                   </div>
                 </div>
               </div>

@@ -16,6 +16,16 @@ function getNextDueDate(dueDay: number): Date {
   return next;
 }
 
+// Statement/due days are a recurring day-of-month (1-31), but a native date
+// picker is friendlier to fill in than a number stepper — so we render one
+// pinned to a fixed reference month and only read back the day component.
+function dayToDateInputValue(day: number): string {
+  return `2024-01-${String(Math.min(31, Math.max(1, day || 1))).padStart(2, '0')}`;
+}
+function dateInputValueToDay(value: string): number {
+  return Math.min(31, Math.max(1, parseInt(value.slice(-2), 10) || 1));
+}
+
 const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
   'Housing': 1500,
   'Food & Dining': 500,
@@ -390,13 +400,23 @@ export default function Budget() {
                     <label className="label">Balance</label>
                     <input className="input" type="number" value={cardDraft.currentBalance} onChange={e => setCardDraft(d => ({ ...d, currentBalance: e.target.value }))} />
                   </div>
-                  <div className="w-24">
-                    <label className="label">Stmt day</label>
-                    <input className="input" type="number" min="1" max="31" value={cardDraft.statementDay} onChange={e => setCardDraft(d => ({ ...d, statementDay: e.target.value }))} />
+                  <div className="w-36">
+                    <label className="label">Statement date</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={dayToDateInputValue(parseInt(cardDraft.statementDay, 10))}
+                      onChange={e => setCardDraft(d => ({ ...d, statementDay: String(dateInputValueToDay(e.target.value)) }))}
+                    />
                   </div>
-                  <div className="w-24">
-                    <label className="label">Due day</label>
-                    <input className="input" type="number" min="1" max="31" value={cardDraft.dueDay} onChange={e => setCardDraft(d => ({ ...d, dueDay: e.target.value }))} />
+                  <div className="w-36">
+                    <label className="label">Due date</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={dayToDateInputValue(parseInt(cardDraft.dueDay, 10))}
+                      onChange={e => setCardDraft(d => ({ ...d, dueDay: String(dateInputValueToDay(e.target.value)) }))}
+                    />
                   </div>
                   <button onClick={saveCardEdit} className="btn-primary p-2"><Check size={14} /></button>
                   <button onClick={() => setEditingCardId(null)} className="btn-secondary p-2"><X size={14} /></button>
@@ -453,13 +473,23 @@ export default function Budget() {
                 <label className="label">Balance</label>
                 <input className="input" type="number" value={newCard.currentBalance} onChange={e => setNewCard(d => ({ ...d, currentBalance: e.target.value }))} />
               </div>
-              <div className="w-24">
-                <label className="label">Stmt day</label>
-                <input className="input" type="number" min="1" max="31" value={newCard.statementDay} onChange={e => setNewCard(d => ({ ...d, statementDay: e.target.value }))} />
+              <div className="w-36">
+                <label className="label">Statement date</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={dayToDateInputValue(parseInt(newCard.statementDay, 10))}
+                  onChange={e => setNewCard(d => ({ ...d, statementDay: String(dateInputValueToDay(e.target.value)) }))}
+                />
               </div>
-              <div className="w-24">
-                <label className="label">Due day</label>
-                <input className="input" type="number" min="1" max="31" value={newCard.dueDay} onChange={e => setNewCard(d => ({ ...d, dueDay: e.target.value }))} />
+              <div className="w-36">
+                <label className="label">Due date</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={dayToDateInputValue(parseInt(newCard.dueDay, 10))}
+                  onChange={e => setNewCard(d => ({ ...d, dueDay: String(dateInputValueToDay(e.target.value)) }))}
+                />
               </div>
               <button onClick={submitNewCard} className="btn-primary p-2"><Check size={14} /></button>
               <button onClick={() => setShowAddCard(false)} className="btn-secondary p-2"><X size={14} /></button>
