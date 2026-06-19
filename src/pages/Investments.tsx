@@ -619,10 +619,12 @@ export default function Investments() {
               <tr className="border-b border-slate-800">
                 <th className="text-left text-xs text-slate-500 font-medium px-5 py-3">Asset</th>
                 <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Type</th>
+                <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Purchased</th>
                 <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Units</th>
                 <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Buy Price</th>
                 <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Current</th>
                 <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Value</th>
+                <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">% Portfolio</th>
                 <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Return</th>
                 <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Actions</th>
               </tr>
@@ -633,6 +635,9 @@ export default function Investments() {
                 const cost = inv.units * inv.buyPrice;
                 const gain = value - cost;
                 const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+                const sgdValue = toSgd(value, inv.platform);
+                const portfolioPct = totalValue > 0 ? (sgdValue / totalValue) * 100 : 0;
+                const currency = inv.platform === 'StashAway' ? 'USD' : 'SGD';
                 return (
                   <tr key={inv.id} onClick={() => setDetailId(inv.id)} className="hover:bg-slate-800/30 transition-colors cursor-pointer">
                     <td className="px-5 py-3">
@@ -647,17 +652,27 @@ export default function Investments() {
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Auto</span>
                             )}
                           </div>
-                          {inv.ticker && <div className="text-slate-500 text-xs">{inv.ticker}</div>}
+                          <div className="text-slate-500 text-xs flex items-center gap-1">
+                            {inv.ticker && <span>{inv.ticker}</span>}
+                            <span className="text-[10px] px-1 py-px rounded bg-slate-800 text-slate-500">{currency}</span>
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{TYPE_LABELS[inv.type]}</span>
                     </td>
+                    <td className="px-4 py-3 text-left text-slate-400 text-xs whitespace-nowrap">{formatDate(inv.purchaseDate)}</td>
                     <td className="px-4 py-3 text-right text-slate-300 text-xs">{inv.units}</td>
                     <td className="px-4 py-3 text-right text-slate-300 text-xs">{fmt(inv.buyPrice)}</td>
                     <td className="px-4 py-3 text-right text-slate-300 text-xs"><FlashValue value={inv.currentPrice} format={fmt} /></td>
                     <td className="px-4 py-3 text-right text-white font-medium text-xs"><FlashValue value={value} format={fmt} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="text-xs text-slate-300">{portfolioPct.toFixed(1)}%</div>
+                      <div className="w-14 h-1 rounded-full bg-slate-800 mt-1 ml-auto overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, portfolioPct)}%`, background: inv.color }} />
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className={`text-xs font-semibold ${gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         <FlashValue value={gain} format={v => `${v >= 0 ? '+' : ''}${fmt(v)}`} />
