@@ -191,6 +191,21 @@ export default function Investments() {
   const [stockSyncError, setStockSyncError] = useState('');
   const [stockLastSynced, setStockLastSynced] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [syncTick, setSyncTick] = useState(0);
+
+  // Auto-refresh live prices on page load, then every 15 minutes while this page stays open —
+  // no need to click "Sync" manually. (Only runs while a tab has this page open; it can't
+  // update prices in the background once the browser is closed.)
+  useEffect(() => {
+    const id = setInterval(() => setSyncTick(t => t + 1), 15 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    handleSyncStocks();
+    handleSyncCrypto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncTick]);
 
   useEffect(() => {
     async function syncAutoInvest() {
@@ -386,14 +401,14 @@ export default function Investments() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Investment Portfolio</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Track your wealth growth</p>
+          <p className="text-slate-400 text-sm mt-0.5">Track your wealth growth · prices auto-refresh every 15 min while this page is open</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handleSyncStocks} disabled={stockSyncing} className="btn-secondary flex items-center gap-2">
-            <RefreshCw size={16} className={stockSyncing ? 'animate-spin' : ''} /> {stockSyncing ? 'Syncing...' : 'Sync Stock Prices'}
+            <RefreshCw size={16} className={stockSyncing ? 'animate-spin' : ''} /> {stockSyncing ? 'Syncing...' : 'Sync Stock Prices Now'}
           </button>
           <button onClick={handleSyncCrypto} disabled={syncing} className="btn-secondary flex items-center gap-2">
-            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync Crypto Prices'}
+            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync Crypto Prices Now'}
           </button>
           <button onClick={() => setShowImportModal(true)} className="btn-secondary flex items-center gap-2">
             <Download size={16} /> Import My Holdings
