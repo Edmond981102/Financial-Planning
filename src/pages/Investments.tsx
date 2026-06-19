@@ -166,14 +166,14 @@ const CRYPTO_ID_MAP: Record<string, string> = {
 
 interface InvForm {
   name: string; type: InvestmentType; ticker: string;
-  units: string; buyPrice: string; currentPrice: string;
+  units: string; buyPrice: string; currentPrice: string; fee: string;
   purchaseDate: string; notes: string; color: string;
   platform: InvestmentPlatform;
 }
 
 const emptyForm: InvForm = {
   name: '', type: 'stock', ticker: '', units: '',
-  buyPrice: '', currentPrice: '', purchaseDate: '',
+  buyPrice: '', currentPrice: '', fee: '', purchaseDate: '',
   notes: '', color: '#3b82f6', platform: 'Other',
 };
 
@@ -278,10 +278,14 @@ export default function Investments() {
   }
 
   function openEdit(inv: Investment) {
+    // If this holding has a single purchase on record, split its buyPrice back into the
+    // raw fill price + fee so re-editing doesn't double-count a fee already folded in.
+    const singleRecord = inv.purchaseHistory?.length === 1 ? inv.purchaseHistory[0] : null;
     setForm({
       name: inv.name, type: inv.type, ticker: inv.ticker || '',
-      units: String(inv.units), buyPrice: String(inv.buyPrice),
-      currentPrice: String(inv.currentPrice), purchaseDate: inv.purchaseDate,
+      units: String(inv.units), buyPrice: String(singleRecord ? singleRecord.price : inv.buyPrice),
+      currentPrice: String(inv.currentPrice), fee: singleRecord?.fee ? String(singleRecord.fee) : '',
+      purchaseDate: inv.purchaseDate,
       notes: inv.notes || '', color: inv.color, platform: inv.platform || 'Other',
     });
     setEditId(inv.id);
@@ -290,12 +294,24 @@ export default function Investments() {
 
   function handleSubmit() {
     if (!form.name || !form.units || !form.buyPrice || !form.currentPrice) return;
-    const payload = {
+    const units = parseFloat(form.units);
+    const rawPrice = parseFloat(form.buyPrice);
+    const fee = parseFloat(form.fee) || 0;
+    const buyPrice = fee > 0 && units > 0 ? rawPrice + fee / units : rawPrice;
+    const existing = editId ? investments.find(inv => inv.id === editId) : null;
+    const payload: Omit<Investment, 'id'> = {
       name: form.name, type: form.type, ticker: form.ticker || undefined,
-      units: parseFloat(form.units), buyPrice: parseFloat(form.buyPrice),
+      units, buyPrice,
       currentPrice: parseFloat(form.currentPrice), purchaseDate: form.purchaseDate,
       notes: form.notes || undefined, color: form.color, platform: form.platform,
     };
+    // Keep a single-entry purchase history in sync with the raw price/fee so editing again later splits correctly.
+    if (!existing || !existing.purchaseHistory || existing.purchaseHistory.length <= 1) {
+      payload.purchaseHistory = [{
+        date: form.purchaseDate, price: rawPrice, units, amount: rawPrice * units,
+        fee: fee > 0 ? fee : undefined,
+      }];
+    }
     if (editId) {
       updateInvestment(editId, payload);
     } else {
@@ -755,6 +771,11 @@ export default function Investments() {
                   <label className="label">Current Price *</label>
                   <input className="input" type="number" min="0" step="0.01" placeholder="0.00" value={form.currentPrice} onChange={e => setForm(f => ({ ...f, currentPrice: e.target.value }))} />
                 </div>
+              </div>
+              <div>
+                <label className="label">Fees / Charges (total, optional)</label>
+                <input className="input" type="number" min="0" step="0.01" placeholder="e.g. 2.18 brokerage commission" value={form.fee} onChange={e => setForm(f => ({ ...f, fee: e.target.value }))} />
+                <p className="text-xs text-slate-500 mt-1">Total commission charged on top of Buy Price × Units — added to your average cost, like Tiger Brokers' portfolio view.</p>
               </div>
               <div>
                 <label className="label">Color</label>
