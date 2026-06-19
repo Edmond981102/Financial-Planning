@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, LineChart, Line } from 'recharts';
 import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download, RefreshCw } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
@@ -176,6 +176,31 @@ const emptyForm: InvForm = {
   buyPrice: '', currentPrice: '', fee: '', purchaseDate: '',
   notes: '', color: '#3b82f6', platform: 'Other',
 };
+
+// Briefly highlights green/red whenever `value` changes, to surface live price ticks.
+function FlashValue({ value, format, className = '' }: { value: number; format: (v: number) => string; className?: string }) {
+  const prevValue = useRef(value);
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+
+  useEffect(() => {
+    if (value !== prevValue.current) {
+      setFlash(value > prevValue.current ? 'up' : 'down');
+      prevValue.current = value;
+      const timeout = setTimeout(() => setFlash(null), 1200);
+      return () => clearTimeout(timeout);
+    }
+  }, [value]);
+
+  return (
+    <span
+      className={`inline-block rounded px-1 transition-colors duration-700 ${
+        flash === 'up' ? 'bg-emerald-500/25 text-emerald-300' : flash === 'down' ? 'bg-rose-500/25 text-rose-300' : ''
+      } ${className}`}
+    >
+      {format(value)}
+    </span>
+  );
+}
 
 export default function Investments() {
   const { investments, addInvestment, updateInvestment, deleteInvestment } = useFinanceStore();
@@ -437,7 +462,7 @@ export default function Investments() {
       <div className="grid grid-cols-4 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Portfolio Value</div>
-          <div className="text-2xl font-bold text-white">{formatCurrency(totalValue)}</div>
+          <div className="text-2xl font-bold text-white"><FlashValue value={totalValue} format={formatCurrency} /></div>
           <div className="text-xs text-slate-500 mt-0.5">current market value</div>
         </div>
         <div className="card">
@@ -448,7 +473,7 @@ export default function Investments() {
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Total Return</div>
           <div className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {totalReturn >= 0 ? '+' : ''}{formatCurrency(totalReturn)}
+            <FlashValue value={totalReturn} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
           </div>
           <div className="text-xs text-slate-500 mt-0.5">unrealized P&L</div>
         </div>
@@ -512,9 +537,9 @@ export default function Investments() {
           <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white">{group.platform}</h2>
             <div className="flex items-center gap-4 text-xs">
-              <span className="text-slate-500">{formatCurrency(group.value)} value</span>
+              <span className="text-slate-500"><FlashValue value={group.value} format={formatCurrency} /> value</span>
               <span className={`font-medium ${group.gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {group.gain >= 0 ? '+' : ''}{formatCurrency(group.gain)}
+                <FlashValue value={group.gain} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
               </span>
             </div>
           </div>
@@ -560,14 +585,14 @@ export default function Investments() {
                     </td>
                     <td className="px-4 py-3 text-right text-slate-300 text-xs">{inv.units}</td>
                     <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.buyPrice)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.currentPrice)}</td>
-                    <td className="px-4 py-3 text-right text-white font-medium text-xs">{formatCurrency(value)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs"><FlashValue value={inv.currentPrice} format={formatCurrency} /></td>
+                    <td className="px-4 py-3 text-right text-white font-medium text-xs"><FlashValue value={value} format={formatCurrency} /></td>
                     <td className="px-4 py-3 text-right">
                       <div className={`text-xs font-semibold ${gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
+                        <FlashValue value={gain} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
                       </div>
                       <div className={`text-xs ${gainPct >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
-                        {gainPct >= 0 ? '+' : ''}{formatPercent(gainPct)}
+                        <FlashValue value={gainPct} format={v => `${v >= 0 ? '+' : ''}${formatPercent(v)}`} />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -635,11 +660,11 @@ export default function Investments() {
                 </div>
                 <div className="card py-3">
                   <div className="text-xs text-slate-400 mb-1">Current Price</div>
-                  <div className="text-sm font-semibold text-white">{formatCurrency(detailInv.currentPrice)}</div>
+                  <div className="text-sm font-semibold text-white"><FlashValue value={detailInv.currentPrice} format={formatCurrency} /></div>
                 </div>
                 <div className="card py-3">
                   <div className="text-xs text-slate-400 mb-1">Value</div>
-                  <div className="text-sm font-semibold text-white">{formatCurrency(value)}</div>
+                  <div className="text-sm font-semibold text-white"><FlashValue value={value} format={formatCurrency} /></div>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 mb-5">
@@ -650,13 +675,13 @@ export default function Investments() {
                 <div className="card py-3">
                   <div className="text-xs text-slate-400 mb-1">Return</div>
                   <div className={`text-sm font-semibold ${gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
+                    <FlashValue value={gain} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
                   </div>
                 </div>
                 <div className="card py-3">
                   <div className="text-xs text-slate-400 mb-1">Return %</div>
                   <div className={`text-sm font-semibold ${gainPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {gainPct >= 0 ? '+' : ''}{formatPercent(gainPct)}
+                    <FlashValue value={gainPct} format={v => `${v >= 0 ? '+' : ''}${formatPercent(v)}`} />
                   </div>
                 </div>
               </div>
