@@ -1,10 +1,29 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, X, Check, PlusCircle, Target } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, PlusCircle, Target, TrendingUp, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { calculateGoalProgress, calculateMonthsToGoal } from '../utils/calculations';
+import { getGoalStatus, GoalStatusLevel } from '../utils/advisor';
 import { SavingsGoal, GoalCategory } from '../types';
 import { addMonths, format } from 'date-fns';
+
+const STATUS_STYLES: Record<GoalStatusLevel, string> = {
+  completed: 'bg-emerald-500/10 text-emerald-400',
+  ahead: 'bg-emerald-500/10 text-emerald-400',
+  'on-track': 'bg-blue-500/10 text-blue-400',
+  behind: 'bg-amber-500/10 text-amber-400',
+  'at-risk': 'bg-rose-500/10 text-rose-400',
+  'no-plan': 'bg-slate-500/10 text-slate-400',
+};
+
+const STATUS_ICONS: Record<GoalStatusLevel, typeof TrendingUp> = {
+  completed: CheckCircle2,
+  ahead: TrendingUp,
+  'on-track': CheckCircle2,
+  behind: AlertTriangle,
+  'at-risk': AlertTriangle,
+  'no-plan': Info,
+};
 
 const GOAL_ICONS: Record<GoalCategory, string> = {
   emergency: '🛡️',
@@ -139,6 +158,8 @@ export default function Savings() {
           const monthsLeft = calculateMonthsToGoal(goal);
           const isComplete = goal.currentAmount >= goal.targetAmount;
           const remaining = goal.targetAmount - goal.currentAmount;
+          const status = getGoalStatus(goal);
+          const StatusIcon = STATUS_ICONS[status.level];
 
           return (
             <div key={goal.id} className="card space-y-4 hover:border-slate-700 transition-colors">
@@ -184,6 +205,14 @@ export default function Savings() {
                   />
                 </div>
               </div>
+
+              {/* Advisor status */}
+              {!isComplete && (
+                <div className={`rounded-lg px-3 py-2 text-xs flex items-start gap-2 ${STATUS_STYLES[status.level]}`}>
+                  <StatusIcon size={13} className="mt-0.5 shrink-0" />
+                  <span>{status.message}</span>
+                </div>
+              )}
 
               {/* Footer */}
               <div className="flex items-center justify-between text-xs text-slate-500">
