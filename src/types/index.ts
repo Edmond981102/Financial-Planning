@@ -75,9 +75,10 @@ export type InvestmentPlatform = 'Tiger Brokers' | 'Coinbase' | 'StashAway' | 'O
 
 export interface PurchaseRecord {
   date: string; // YYYY-MM-DD
-  price: number; // price per unit at this purchase, in the same currency as buyPrice/currentPrice
+  price: number; // price per unit at this purchase
   units: number; // units bought in this transaction
   amount: number; // price * units (kept explicit since real statements report this directly)
+  currency?: 'USD' | 'SGD'; // defaults to USD; set when the record is kept in its original statement currency
 }
 
 export interface Investment {
