@@ -217,6 +217,26 @@ export default function Investments() {
   const [stockLastSynced, setStockLastSynced] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [syncTick, setSyncTick] = useState(0);
+  const [stashAwayCurrency, setStashAwayCurrency] = useState<'USD' | 'SGD'>('USD');
+  const [usdSgdRate, setUsdSgdRate] = useState<number | null>(null);
+
+  // Fetch the live USD->SGD rate the first time the StashAway view is switched to SGD
+  // (StashAway's own app reports balances in SGD; our stored data stays in USD either way).
+  useEffect(() => {
+    if (stashAwayCurrency !== 'SGD' || usdSgdRate !== null) return;
+    fetch('/api/quote?symbols=USDSGD=X')
+      .then(res => res.json())
+      .then(data => {
+        const rate = data['USDSGD=X'];
+        if (typeof rate === 'number') setUsdSgdRate(rate);
+      })
+      .catch(() => {});
+  }, [stashAwayCurrency, usdSgdRate]);
+
+  function formatStashAway(usdAmount: number): string {
+    if (stashAwayCurrency === 'SGD' && usdSgdRate) return formatCurrency(usdAmount * usdSgdRate, 'S$');
+    return formatCurrency(usdAmount);
+  }
 
   // Auto-refresh live prices on page load, then every 15 minutes while this page stays open —
   // no need to click "Sync" manually. (Only runs while a tab has this page open; it can't
@@ -535,14 +555,32 @@ export default function Investments() {
       </div>
 
       {/* Holdings by Platform */}
-      {platformGroups.map(group => (
+      {platformGroups.map(group => {
+        const isStashAway = group.platform === 'StashAway';
+        const fmt = isStashAway ? formatStashAway : formatCurrency;
+        return (
         <div key={group.platform} className="card p-0 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">{group.platform}</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold text-white">{group.platform}</h2>
+              {isStashAway && (
+                <div className="flex rounded-lg bg-slate-800 p-0.5 text-xs">
+                  {(['USD', 'SGD'] as const).map(cur => (
+                    <button
+                      key={cur}
+                      onClick={() => setStashAwayCurrency(cur)}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${stashAwayCurrency === cur ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {cur}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-4 text-xs">
-              <span className="text-slate-500"><FlashValue value={group.value} format={formatCurrency} /> value</span>
+              <span className="text-slate-500"><FlashValue value={group.value} format={fmt} /> value</span>
               <span className={`font-medium ${group.gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                <FlashValue value={group.gain} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
+                <FlashValue value={group.gain} format={v => `${v >= 0 ? '+' : ''}${fmt(v)}`} />
               </span>
             </div>
           </div>
@@ -587,12 +625,12 @@ export default function Investments() {
                       <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">{TYPE_LABELS[inv.type]}</span>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-300 text-xs">{inv.units}</td>
-                    <td className="px-4 py-3 text-right text-slate-300 text-xs">{formatCurrency(inv.buyPrice)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300 text-xs"><FlashValue value={inv.currentPrice} format={formatCurrency} /></td>
-                    <td className="px-4 py-3 text-right text-white font-medium text-xs"><FlashValue value={value} format={formatCurrency} /></td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs">{fmt(inv.buyPrice)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs"><FlashValue value={inv.currentPrice} format={fmt} /></td>
+                    <td className="px-4 py-3 text-right text-white font-medium text-xs"><FlashValue value={value} format={fmt} /></td>
                     <td className="px-4 py-3 text-right">
                       <div className={`text-xs font-semibold ${gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        <FlashValue value={gain} format={v => `${v >= 0 ? '+' : ''}${formatCurrency(v)}`} />
+                        <FlashValue value={gain} format={v => `${v >= 0 ? '+' : ''}${fmt(v)}`} />
                       </div>
                       <div className={`text-xs ${gainPct >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
                         <FlashValue value={gainPct} format={v => `${v >= 0 ? '+' : ''}${formatPercent(v)}`} />
@@ -614,7 +652,8 @@ export default function Investments() {
             </tbody>
           </table>
         </div>
-      ))}
+        );
+      })}
 
       {/* Detail Modal */}
       {detailInv && (() => {
