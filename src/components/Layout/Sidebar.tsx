@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   LayoutDashboard, ArrowLeftRight, PieChart, CreditCard,
   Target, TrendingUp, Map, Lightbulb, LogOut, Wallet, Settings, Landmark
@@ -6,6 +7,7 @@ import { useFinanceStore } from '../../store/useFinanceStore';
 import { supabase } from '../../lib/supabase';
 import { getCpfBreakdown } from '../../utils/cpf';
 import { getProfileCompletion } from '../../utils/calculations';
+import ProfileSummary from './ProfileSummary';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,6 +25,15 @@ export default function Sidebar() {
   const { activeView, setActiveView, profile, reopenOnboarding } = useFinanceStore();
   const takeHomePay = getCpfBreakdown(profile).takeHomePay;
   const completion = getProfileCompletion(profile);
+  const [showProfileSummary, setShowProfileSummary] = useState(false);
+
+  function handleSettingsClick() {
+    if (completion === 'complete') {
+      setShowProfileSummary(true);
+    } else {
+      reopenOnboarding();
+    }
+  }
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen">
@@ -53,8 +64,8 @@ export default function Sidebar() {
             </div>
           </div>
           <button
-            onClick={reopenOnboarding}
-            title={completion === 'complete' ? 'Edit financial profile setup' : 'Finish setting up your financial profile'}
+            onClick={handleSettingsClick}
+            title={completion === 'complete' ? 'View financial profile setup' : 'Finish setting up your financial profile'}
             className="relative p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
           >
             <Settings size={15} />
@@ -98,6 +109,13 @@ export default function Sidebar() {
           Sign Out
         </button>
       </div>
+
+      {showProfileSummary && (
+        <ProfileSummary
+          onClose={() => setShowProfileSummary(false)}
+          onEdit={() => { setShowProfileSummary(false); reopenOnboarding(); }}
+        />
+      )}
     </aside>
   );
 }
