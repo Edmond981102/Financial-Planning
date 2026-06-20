@@ -280,7 +280,7 @@ export default function Accounts() {
                 </div>
                 <div className="w-24 sm:w-40 shrink-0">
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-400">{formatCurrency(c.currentBalance)} avail.</span>
+                    <span className="text-slate-400">{formatCurrency(owed)} spent</span>
                     <span className="text-slate-500 hidden sm:inline">of {formatCurrency(c.limit)}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">

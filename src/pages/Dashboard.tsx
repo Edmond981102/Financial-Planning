@@ -288,7 +288,7 @@ export default function Dashboard() {
                       <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${usagePercent}%`, background: usagePercent > 80 ? '#f43f5e' : c.color }} />
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{formatCurrency(c.currentBalance)} avail. of {formatCurrency(c.limit)}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{formatCurrency(owed)} spent of {formatCurrency(c.limit)}</div>
                     </div>
                   );
                 })}
