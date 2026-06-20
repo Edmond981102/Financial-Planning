@@ -64,7 +64,8 @@ export default function Transactions() {
   const totalExpenses = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
   function openAdd() {
-    setForm(emptyForm);
+    const defaultExpenseCategories = Object.keys(budgetTemplate).length > 0 ? Object.keys(budgetTemplate) : EXPENSE_CATEGORIES;
+    setForm({ ...emptyForm, category: defaultExpenseCategories[0] });
     setEditId(null);
     setAmountCurrency('SGD');
     setShowModal(true);
@@ -98,11 +99,15 @@ export default function Transactions() {
     setShowModal(false);
   }
 
-  // Custom budget categories (e.g. created in Edit Budget) aren't in the fixed
-  // expense list by default, but should still be selectable here so their
-  // actual spend can be tracked against the budget the user set for them.
-  const customExpenseCategories = Object.keys(budgetTemplate).filter(c => !EXPENSE_CATEGORIES.includes(c));
-  const categories = form.type === 'income' ? INCOME_CATEGORIES : [...EXPENSE_CATEGORIES, ...customExpenseCategories];
+  // Expense categories mirror whatever the user has set up in Budget, so the
+  // dropdown never offers a category with no budget behind it. Falls back to
+  // a starter list only before any budget category has been created.
+  const expenseCategories = Object.keys(budgetTemplate).length > 0 ? Object.keys(budgetTemplate) : EXPENSE_CATEGORIES;
+  // If an existing transaction's category was since removed from Budget, keep
+  // it selectable here so editing the form doesn't silently change its category.
+  const categories = form.type === 'income'
+    ? INCOME_CATEGORIES
+    : expenseCategories.includes(form.category) ? expenseCategories : [form.category, ...expenseCategories];
 
   return (
     <div className="p-6 space-y-6">
@@ -252,7 +257,7 @@ export default function Transactions() {
                 {(['expense', 'income'] as const).map(type => (
                   <button
                     key={type}
-                    onClick={() => setForm(f => ({ ...f, type, category: type === 'income' ? 'Salary' : 'Food & Dining' }))}
+                    onClick={() => setForm(f => ({ ...f, type, category: type === 'income' ? 'Salary' : expenseCategories[0] }))}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
                       form.type === type
                         ? type === 'income' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
