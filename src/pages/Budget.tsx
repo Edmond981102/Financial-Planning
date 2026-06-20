@@ -8,6 +8,7 @@ import { format, subMonths, setDate, isBefore, addMonths, differenceInCalendarDa
 import { CreditCard } from '../types';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
+import { getCpfBreakdown } from '../utils/cpf';
 
 const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
 
@@ -88,6 +89,7 @@ export default function Budget() {
   }, [transactions, selectedMonth]);
 
   const totalBudget = Object.values(budgetCategories).reduce((s, v) => s + v, 0);
+  const takeHomePay = getCpfBreakdown(profile).takeHomePay;
   const totalActual = getMonthExpenses(transactions, selectedMonth);
   const totalRemaining = totalBudget - totalActual;
 
@@ -322,6 +324,7 @@ export default function Budget() {
           <h2 className="text-sm font-semibold text-white">Category Breakdown</h2>
           <span className="text-xs text-slate-400">
             Total budget: <span className="text-white font-semibold">{formatCurrency(totalBudget)}</span>
+            {takeHomePay > 0 && <span className="text-slate-500"> / {formatCurrency(takeHomePay)}</span>}
           </span>
         </div>
         <div className="space-y-3">
