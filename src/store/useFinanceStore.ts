@@ -11,13 +11,15 @@ function advanceBillingDate(date: Date, frequency: SubscriptionFrequency): Date 
   }
 }
 
-// Credit card currentBalance isn't derived from transactions like account balances are,
-// so a transfer paying off a card has to nudge its balance directly when applied (sign=1)
+// Credit card currentBalance represents available credit remaining (limit minus
+// amount owed), not the amount owed itself — so paying off the card increases it.
+// It isn't derived from transactions like account balances are, so a transfer
+// paying down a card has to nudge its balance directly when applied (sign=1)
 // or reversed (sign=-1) on edit/delete.
 function applyTransferToCreditCards(creditCards: CreditCard[], t: Transaction, sign: 1 | -1): CreditCard[] {
   if (t.type !== 'transfer' || !t.toAccountId) return creditCards;
   return creditCards.map((c) =>
-    c.id === t.toAccountId ? { ...c, currentBalance: c.currentBalance - sign * t.amount } : c
+    c.id === t.toAccountId ? { ...c, currentBalance: c.currentBalance + sign * t.amount } : c
   );
 }
 
@@ -132,6 +134,7 @@ interface FinanceStore {
   activeView: string;
   onboardingComplete: boolean;
   myrToSgdRate: number; // user-editable; used to convert MYR amounts entered in Budget/Transactions into SGD, the app's base currency
+  creditCardBalanceMigratedV1: boolean; // true once existing creditCards.currentBalance values have been flipped from "amount owed" to "available credit"
 
   setActiveView: (view: string) => void;
 
@@ -159,6 +162,7 @@ interface FinanceStore {
   addCreditCard: (c: Omit<CreditCard, 'id'>) => void;
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => void;
   deleteCreditCard: (id: string) => void;
+  migrateCreditCardBalanceSemantics: () => void;
 
   addAccount: (a: Omit<Account, 'id'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
@@ -185,6 +189,7 @@ export interface SyncableState {
   accounts: Account[];
   profile: UserProfile;
   myrToSgdRate: number;
+  creditCardBalanceMigratedV1: boolean;
 }
 
 export const useFinanceStore = create<FinanceStore>()(
@@ -203,6 +208,7 @@ export const useFinanceStore = create<FinanceStore>()(
       activeView: 'dashboard',
       onboardingComplete: false,
       myrToSgdRate: 0.29,
+      creditCardBalanceMigratedV1: false,
 
       setActiveView: (view) => set({ activeView: view }),
 
@@ -366,6 +372,14 @@ export const useFinanceStore = create<FinanceStore>()(
         set((state) => ({
           creditCards: state.creditCards.filter((c) => c.id !== id),
         })),
+      migrateCreditCardBalanceSemantics: () =>
+        set((state) => {
+          if (state.creditCardBalanceMigratedV1) return {};
+          return {
+            creditCardBalanceMigratedV1: true,
+            creditCards: state.creditCards.map((c) => ({ ...c, currentBalance: Math.max(0, c.limit - c.currentBalance) })),
+          };
+        }),
 
       addAccount: (a) =>
         set((state) => ({
@@ -390,7 +404,12 @@ export const useFinanceStore = create<FinanceStore>()(
       reopenOnboarding: () => set({ onboardingComplete: false }),
       setMyrToSgdRate: (rate) => set({ myrToSgdRate: rate }),
 
-      hydrateFromCloud: (data) => set(() => ({ ...data, accounts: data.accounts ?? [], myrToSgdRate: data.myrToSgdRate ?? 0.29 })),
+      hydrateFromCloud: (data) => set(() => ({
+        ...data,
+        accounts: data.accounts ?? [],
+        myrToSgdRate: data.myrToSgdRate ?? 0.29,
+        creditCardBalanceMigratedV1: data.creditCardBalanceMigratedV1 ?? false,
+      })),
       getSyncableState: () => {
         const s = get();
         return {
@@ -405,6 +424,7 @@ export const useFinanceStore = create<FinanceStore>()(
           accounts: s.accounts,
           profile: s.profile,
           myrToSgdRate: s.myrToSgdRate,
+          creditCardBalanceMigratedV1: s.creditCardBalanceMigratedV1,
         };
       },
     }),

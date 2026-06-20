@@ -57,7 +57,7 @@ export default function Accounts() {
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [cardDraft, setCardDraft] = useState<Record<string, string>>({});
   const [showAddCard, setShowAddCard] = useState(false);
-  const [newCard, setNewCard] = useState({ name: '', limit: '', currentBalance: '0', statementDay: '1', dueDay: '15' });
+  const [newCard, setNewCard] = useState({ name: '', limit: '', currentBalance: '', statementDay: '1', dueDay: '15' });
 
   const totalBalance = accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
 
@@ -117,15 +117,16 @@ export default function Accounts() {
 
   function submitNewCard() {
     if (!newCard.name.trim() || !newCard.limit) return;
+    const limit = parseFloat(newCard.limit) || 0;
     addCreditCard({
       name: newCard.name.trim(),
-      limit: parseFloat(newCard.limit) || 0,
-      currentBalance: parseFloat(newCard.currentBalance) || 0,
+      limit,
+      currentBalance: newCard.currentBalance === '' ? limit : (parseFloat(newCard.currentBalance) || 0),
       statementDay: Math.min(31, Math.max(1, parseInt(newCard.statementDay) || 1)),
       dueDay: Math.min(31, Math.max(1, parseInt(newCard.dueDay) || 1)),
       color: CARD_COLORS[creditCards.length % CARD_COLORS.length],
     });
-    setNewCard({ name: '', limit: '', currentBalance: '0', statementDay: '1', dueDay: '15' });
+    setNewCard({ name: '', limit: '', currentBalance: '', statementDay: '1', dueDay: '15' });
     setShowAddCard(false);
   }
 
@@ -213,7 +214,8 @@ export default function Accounts() {
         <div className="space-y-3">
           {creditCards.map((c) => {
             const isEditing = editingCardId === c.id;
-            const utilization = c.limit > 0 ? Math.min(100, (c.currentBalance / c.limit) * 100) : 0;
+            const owed = Math.max(0, c.limit - c.currentBalance);
+            const usagePercent = c.limit > 0 ? Math.min(100, (owed / c.limit) * 100) : 0;
             const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
             const dueSoon = daysUntilDue <= 5;
 
@@ -229,7 +231,7 @@ export default function Accounts() {
                     <MoneyInput className="input" value={cardDraft.limit} onChange={raw => setCardDraft(d => ({ ...d, limit: raw }))} />
                   </div>
                   <div className="w-28">
-                    <label className="label">Balance</label>
+                    <label className="label">Available Balance</label>
                     <MoneyInput className="input" value={cardDraft.currentBalance} onChange={raw => setCardDraft(d => ({ ...d, currentBalance: raw }))} />
                   </div>
                   <div className="w-28">
@@ -278,11 +280,11 @@ export default function Accounts() {
                 </div>
                 <div className="w-24 sm:w-40 shrink-0">
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-slate-400">{formatCurrency(c.currentBalance)}</span>
+                    <span className="text-slate-400">{formatCurrency(c.currentBalance)} avail.</span>
                     <span className="text-slate-500 hidden sm:inline">of {formatCurrency(c.limit)}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${utilization}%`, background: utilization > 80 ? '#f43f5e' : c.color }} />
+                    <div className="h-full rounded-full" style={{ width: `${usagePercent}%`, background: usagePercent > 80 ? '#f43f5e' : c.color }} />
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -308,7 +310,7 @@ export default function Accounts() {
                 <MoneyInput className="input" value={newCard.limit} onChange={raw => setNewCard(d => ({ ...d, limit: raw }))} />
               </div>
               <div className="w-28">
-                <label className="label">Balance</label>
+                <label className="label">Available Balance</label>
                 <MoneyInput className="input" value={newCard.currentBalance} onChange={raw => setNewCard(d => ({ ...d, currentBalance: raw }))} />
               </div>
               <div className="w-28">

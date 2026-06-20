@@ -273,7 +273,8 @@ export default function Dashboard() {
               <h2 className="text-sm font-semibold text-white mb-3">Credit Cards</h2>
               <div className="space-y-3">
                 {creditCards.map((c) => {
-                  const utilization = c.limit > 0 ? Math.min(100, (c.currentBalance / c.limit) * 100) : 0;
+                  const owed = Math.max(0, c.limit - c.currentBalance);
+                  const usagePercent = c.limit > 0 ? Math.min(100, (owed / c.limit) * 100) : 0;
                   const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
                   const dueSoon = daysUntilDue <= 5;
                   return (
@@ -285,9 +286,9 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${utilization}%`, background: c.color }} />
+                        <div className="h-full rounded-full" style={{ width: `${usagePercent}%`, background: usagePercent > 80 ? '#f43f5e' : c.color }} />
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">{formatCurrency(c.currentBalance)} / {formatCurrency(c.limit)}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{formatCurrency(c.currentBalance)} avail. of {formatCurrency(c.limit)}</div>
                     </div>
                   );
                 })}

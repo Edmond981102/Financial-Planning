@@ -137,7 +137,7 @@ export interface CreditCard {
   id: string;
   name: string;
   limit: number;
-  currentBalance: number;
+  currentBalance: number; // available credit remaining (limit minus amount owed), not the amount owed
   statementDay: number; // 1-31, day of month the statement is generated
   dueDay: number; // 1-31, day of month payment is due
   color: string;
