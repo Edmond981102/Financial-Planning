@@ -1,4 +1,4 @@
-import { differenceInCalendarYears, parseISO } from 'date-fns';
+import { differenceInYears, parseISO } from 'date-fns';
 import { UserProfile } from '../types';
 
 // Ordinary Wage ceiling effective 1 Jan 2026 (CPF Board). CPF contributions are
@@ -43,7 +43,7 @@ const PR_YEAR2_RATE: Partial<Record<AgeBand, Rates>> = {
 
 export function getCpfResidencyYear(profile: UserProfile): 1 | 2 | 3 {
   if (profile.residencyStatus !== 'pr' || !profile.prStartDate) return 3;
-  const years = differenceInCalendarYears(new Date(), parseISO(profile.prStartDate));
+  const years = differenceInYears(new Date(), parseISO(profile.prStartDate));
   if (years < 1) return 1;
   if (years < 2) return 2;
   return 3;
