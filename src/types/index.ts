@@ -1,4 +1,4 @@
-export type TransactionType = 'income' | 'expense';
+export type TransactionType = 'income' | 'expense' | 'saving';
 
 export type ExpenseCategory =
   | 'Housing' | 'Food & Dining' | 'Transport' | 'Health' | 'Entertainment'

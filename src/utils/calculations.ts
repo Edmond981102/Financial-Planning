@@ -30,7 +30,13 @@ export function getMonthExpenses(transactions: Transaction[], monthStr: string):
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
-export function getCategoryTotals(transactions: Transaction[], type: 'income' | 'expense') {
+export function getMonthSavings(transactions: Transaction[], monthStr: string): number {
+  return getMonthTransactions(transactions, monthStr)
+    .filter(t => t.type === 'saving')
+    .reduce((sum, t) => sum + t.amount, 0);
+}
+
+export function getCategoryTotals(transactions: Transaction[], type: 'income' | 'expense' | 'saving') {
   const map: Record<string, number> = {};
   transactions.filter(t => t.type === type).forEach(t => {
     map[t.category] = (map[t.category] || 0) + t.amount;

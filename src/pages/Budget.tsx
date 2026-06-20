@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, GripVertical } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { getMonthExpenses, getMonthIncome, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
+import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
@@ -54,15 +54,17 @@ export default function Budget() {
 
   const actualByCategory = useMemo(() => {
     const txns = getMonthTransactions(transactions, selectedMonth);
-    const totals = getCategoryTotals(txns, 'expense');
+    // Budgeted categories can be tagged as either expense or saving transactions
+    // (e.g. "Spouse Savings"), so both count toward a category's actual spend.
+    const totals = [...getCategoryTotals(txns, 'expense'), ...getCategoryTotals(txns, 'saving')];
     const map: Record<string, number> = {};
-    totals.forEach(({ name, value }) => { map[name] = value; });
+    totals.forEach(({ name, value }) => { map[name] = (map[name] || 0) + value; });
     return map;
   }, [transactions, selectedMonth]);
 
   const totalBudget = Object.values(budgetCategories).reduce((s, v) => s + v, 0);
   const takeHomePay = getCpfBreakdown(profile).takeHomePay;
-  const totalActual = getMonthExpenses(transactions, selectedMonth);
+  const totalActual = getMonthExpenses(transactions, selectedMonth) + getMonthSavings(transactions, selectedMonth);
   const totalRemaining = totalBudget - totalActual;
 
   const chartData = Object.entries(budgetCategories).map(([category, budget]) => ({
@@ -140,7 +142,7 @@ export default function Budget() {
   }, 0);
   const actualExpensesPct = thisMonthIncome > 0 ? (getMonthExpenses(transactions, currentRealMonth) / thisMonthIncome) * 100 : 0;
   const actualInvestmentsPct = thisMonthIncome > 0 ? (monthlyAutoInvest / thisMonthIncome) * 100 : 0;
-  const actualSavingsPct = Math.max(0, 100 - actualExpensesPct - actualInvestmentsPct);
+  const actualSavingsPct = thisMonthIncome > 0 ? (getMonthSavings(transactions, currentRealMonth) / thisMonthIncome) * 100 : 0;
 
   const targets = profile.allocationTargets ?? { savingsPct: 20, expensesPct: 60, investmentsPct: 20 };
 

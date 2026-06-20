@@ -16,16 +16,22 @@ const INCOME_CATEGORIES = [
   'Business', 'Bonus', 'Gift', 'Other',
 ];
 
-type FilterType = 'all' | 'income' | 'expense';
+type FilterType = 'all' | 'income' | 'expense' | 'saving';
 
 interface TxForm {
   date: string;
   amount: string;
   description: string;
   category: string;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'saving';
   accountId: string;
 }
+
+const TYPE_STYLES: Record<TxForm['type'], { badge: string; amount: string; sign: string; active: string }> = {
+  income: { badge: 'bg-emerald-500/15 text-emerald-400', amount: 'text-emerald-400', sign: '+', active: 'bg-emerald-500 text-white' },
+  expense: { badge: 'bg-rose-500/15 text-rose-400', amount: 'text-rose-400', sign: '-', active: 'bg-rose-500 text-white' },
+  saving: { badge: 'bg-sky-500/15 text-sky-400', amount: 'text-sky-400', sign: '-', active: 'bg-sky-500 text-white' },
+};
 
 const emptyForm: TxForm = {
   date: format(new Date(), 'yyyy-MM-dd'),
@@ -62,6 +68,7 @@ export default function Transactions() {
 
   const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpenses = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const totalSavings = filtered.filter(t => t.type === 'saving').reduce((s, t) => s + t.amount, 0);
 
   function openAdd() {
     const defaultExpenseCategories = Object.keys(budgetTemplate).length > 0 ? Object.keys(budgetTemplate) : EXPENSE_CATEGORIES;
@@ -122,7 +129,7 @@ export default function Transactions() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="card text-center">
           <div className="text-xs text-slate-400 mb-1">Total Income</div>
           <div className="text-xl font-bold text-emerald-400">{formatCurrency(totalIncome)}</div>
@@ -132,9 +139,13 @@ export default function Transactions() {
           <div className="text-xl font-bold text-rose-400">{formatCurrency(totalExpenses)}</div>
         </div>
         <div className="card text-center">
+          <div className="text-xs text-slate-400 mb-1">Total Savings</div>
+          <div className="text-xl font-bold text-sky-400">{formatCurrency(totalSavings)}</div>
+        </div>
+        <div className="card text-center">
           <div className="text-xs text-slate-400 mb-1">Net Balance</div>
-          <div className={`text-xl font-bold ${totalIncome - totalExpenses >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {formatCurrency(totalIncome - totalExpenses)}
+          <div className={`text-xl font-bold ${totalIncome - totalExpenses - totalSavings >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {formatCurrency(totalIncome - totalExpenses - totalSavings)}
           </div>
         </div>
       </div>
@@ -158,6 +169,7 @@ export default function Transactions() {
           <option value="all">All Types</option>
           <option value="income">Income</option>
           <option value="expense">Expense</option>
+          <option value="saving">Saving</option>
         </select>
         <input
           type="month"
@@ -222,12 +234,12 @@ export default function Transactions() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`badge ${t.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
+                    <span className={`badge ${TYPE_STYLES[t.type].badge}`}>
                       {t.type}
                     </span>
                   </td>
-                  <td className={`px-5 py-3 text-right font-semibold ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                  <td className={`px-5 py-3 text-right font-semibold ${TYPE_STYLES[t.type].amount}`}>
+                    {TYPE_STYLES[t.type].sign}{formatCurrency(t.amount)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -260,14 +272,12 @@ export default function Transactions() {
             <div className="space-y-4">
               {/* Type Toggle */}
               <div className="flex rounded-xl overflow-hidden border border-slate-700 p-1 gap-1">
-                {(['expense', 'income'] as const).map(type => (
+                {(['expense', 'saving', 'income'] as const).map(type => (
                   <button
                     key={type}
                     onClick={() => setForm(f => ({ ...f, type, category: type === 'income' ? 'Salary' : expenseCategories[0] }))}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
-                      form.type === type
-                        ? type === 'income' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-                        : 'text-slate-400 hover:text-white'
+                      form.type === type ? TYPE_STYLES[type].active : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     {type}

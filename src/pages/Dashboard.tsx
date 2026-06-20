@@ -214,7 +214,7 @@ export default function Dashboard() {
               <div key={t.id} className="flex items-center justify-between py-2 border-b border-slate-800/60 last:border-0">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-                    t.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                    t.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : t.type === 'saving' ? 'bg-sky-500/15 text-sky-400' : 'bg-rose-500/15 text-rose-400'
                   }`}>
                     {t.category.charAt(0)}
                   </div>
@@ -223,7 +223,7 @@ export default function Dashboard() {
                     <div className="text-xs text-slate-500">{t.category} · {formatDate(t.date, 'MMM d')}</div>
                   </div>
                 </div>
-                <div className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <div className={`text-sm font-semibold ${t.type === 'income' ? 'text-emerald-400' : t.type === 'saving' ? 'text-sky-400' : 'text-rose-400'}`}>
                   {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                 </div>
               </div>
