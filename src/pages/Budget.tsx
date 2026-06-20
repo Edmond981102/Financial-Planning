@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, CreditCard as CreditCardIcon } from 'lucide-react';
+import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, CreditCard as CreditCardIcon, GripVertical } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import { getMonthExpenses, getMonthIncome, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
@@ -56,6 +56,7 @@ export default function Budget() {
   const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string }[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [cardDraft, setCardDraft] = useState<Record<string, string>>({});
@@ -134,6 +135,15 @@ export default function Budget() {
 
   function setCategoryAmount(id: string, amount: string) {
     setDraftCategories(d => d.map(c => (c.id === id ? { ...c, amount } : c)));
+  }
+
+  function moveCategory(from: number, to: number) {
+    setDraftCategories(d => {
+      const next = [...d];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   }
 
   const thisMonthIncome = getMonthIncome(transactions, currentRealMonth);
@@ -275,7 +285,7 @@ export default function Budget() {
       {/* Budget vs Actual Chart */}
       <div className="card">
         <h2 className="text-sm font-semibold text-white mb-4">Budget vs Actual by Category</h2>
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={Math.max(250, chartData.length * 32)}>
           <BarChart data={chartData} layout="vertical" barGap={3}>
             <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
             <YAxis type="category" dataKey="category" width={110} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -298,7 +308,7 @@ export default function Budget() {
         <h2 className="text-sm font-semibold text-white mb-4">Category Breakdown</h2>
         <div className="space-y-3">
           {editMode
-            ? draftCategories.map((draft) => {
+            ? draftCategories.map((draft, index) => {
                 const budget = parseFloat(draft.amount) || 0;
                 const actual = actualByCategory[draft.name] || 0;
                 const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
@@ -306,9 +316,22 @@ export default function Budget() {
                 const remaining = budget - actual;
 
                 return (
-                  <div key={draft.id} className="space-y-1.5">
+                  <div
+                    key={draft.id}
+                    className={`space-y-1.5 rounded-lg transition-colors ${dragIndex === index ? 'opacity-40' : ''}`}
+                    draggable
+                    onDragStart={() => setDragIndex(index)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null && dragIndex !== index) moveCategory(dragIndex, index);
+                      setDragIndex(null);
+                    }}
+                    onDragEnd={() => setDragIndex(null)}
+                  >
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <GripVertical size={14} className="text-slate-600 cursor-grab shrink-0" />
                         {over ? (
                           <AlertTriangle size={13} className="text-rose-400 shrink-0" />
                         ) : pct >= 80 ? (

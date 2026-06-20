@@ -36,7 +36,7 @@ const emptyForm: TxForm = {
 };
 
 export default function Transactions() {
-  const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
+  const { transactions, accounts, budgetTemplate, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<TxForm>(emptyForm);
@@ -93,7 +93,11 @@ export default function Transactions() {
     setShowModal(false);
   }
 
-  const categories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  // Custom budget categories (e.g. created in Edit Budget) aren't in the fixed
+  // expense list by default, but should still be selectable here so their
+  // actual spend can be tracked against the budget the user set for them.
+  const customExpenseCategories = Object.keys(budgetTemplate).filter(c => !EXPENSE_CATEGORIES.includes(c));
+  const categories = form.type === 'income' ? INCOME_CATEGORIES : [...EXPENSE_CATEGORIES, ...customExpenseCategories];
 
   return (
     <div className="p-6 space-y-6">
