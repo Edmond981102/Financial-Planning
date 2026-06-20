@@ -318,7 +318,12 @@ export default function Budget() {
 
       {/* Category Details */}
       <div className="card">
-        <h2 className="text-sm font-semibold text-white mb-4">Category Breakdown</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">Category Breakdown</h2>
+          <span className="text-xs text-slate-400">
+            Total budget: <span className="text-white font-semibold">{formatCurrency(totalBudget)}</span>
+          </span>
+        </div>
         <div className="space-y-3">
           {editMode
             ? draftCategories.map((draft, index) => {
