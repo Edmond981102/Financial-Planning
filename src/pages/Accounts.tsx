@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, X, Check, Landmark } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, Landmark, CreditCard as CreditCardIcon } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency } from '../utils/formatters';
 import { getAccountBalance } from '../utils/calculations';
-import { Account } from '../types';
+import { Account, CreditCard } from '../types';
+import { setDate, isBefore, addMonths, differenceInCalendarDays } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 
 const ACCOUNT_COLORS = [
   '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444',
   '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1',
 ];
+const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
 
 interface AccountForm {
   name: string;
@@ -23,11 +25,39 @@ const emptyForm: AccountForm = {
   color: ACCOUNT_COLORS[0],
 };
 
+function getNextDueDate(dueDay: number): Date {
+  const today = new Date();
+  let next = setDate(today, dueDay);
+  if (isBefore(next, today)) next = setDate(addMonths(today, 1), dueDay);
+  return next;
+}
+
+// Statement/due days are a recurring day-of-month (1-31) with no year or
+// month attached, so a plain day picker avoids implying a specific date.
+function ordinal(day: number): string {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1: return `${day}st`;
+    case 2: return `${day}nd`;
+    case 3: return `${day}rd`;
+    default: return `${day}th`;
+  }
+}
+const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => i + 1);
+
 export default function Accounts() {
-  const { accounts, transactions, addAccount, updateAccount, deleteAccount } = useFinanceStore();
+  const {
+    accounts, transactions, addAccount, updateAccount, deleteAccount,
+    creditCards, addCreditCard, updateCreditCard, deleteCreditCard,
+  } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
+
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [cardDraft, setCardDraft] = useState<Record<string, string>>({});
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [newCard, setNewCard] = useState({ name: '', limit: '', currentBalance: '0', statementDay: '1', dueDay: '15' });
 
   const totalBalance = accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
 
@@ -60,6 +90,43 @@ export default function Accounts() {
       addAccount(payload);
     }
     setShowModal(false);
+  }
+
+  function startEditCard(card: CreditCard) {
+    setEditingCardId(card.id);
+    setCardDraft({
+      name: card.name,
+      limit: String(card.limit),
+      currentBalance: String(card.currentBalance),
+      statementDay: String(card.statementDay),
+      dueDay: String(card.dueDay),
+    });
+  }
+
+  function saveCardEdit() {
+    if (!editingCardId) return;
+    updateCreditCard(editingCardId, {
+      name: cardDraft.name.trim(),
+      limit: parseFloat(cardDraft.limit) || 0,
+      currentBalance: parseFloat(cardDraft.currentBalance) || 0,
+      statementDay: Math.min(31, Math.max(1, parseInt(cardDraft.statementDay) || 1)),
+      dueDay: Math.min(31, Math.max(1, parseInt(cardDraft.dueDay) || 1)),
+    });
+    setEditingCardId(null);
+  }
+
+  function submitNewCard() {
+    if (!newCard.name.trim() || !newCard.limit) return;
+    addCreditCard({
+      name: newCard.name.trim(),
+      limit: parseFloat(newCard.limit) || 0,
+      currentBalance: parseFloat(newCard.currentBalance) || 0,
+      statementDay: Math.min(31, Math.max(1, parseInt(newCard.statementDay) || 1)),
+      dueDay: Math.min(31, Math.max(1, parseInt(newCard.dueDay) || 1)),
+      color: CARD_COLORS[creditCards.length % CARD_COLORS.length],
+    });
+    setNewCard({ name: '', limit: '', currentBalance: '0', statementDay: '1', dueDay: '15' });
+    setShowAddCard(false);
   }
 
   return (
@@ -128,6 +195,151 @@ export default function Accounts() {
             <p className="text-slate-500">No accounts yet. Add your bank accounts or wallets to track their balances.</p>
           </div>
         )}
+      </div>
+
+      {/* Credit Cards */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-white">Credit Cards</h2>
+          <button onClick={() => setShowAddCard(s => !s)} className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3">
+            <Plus size={13} /> Add Card
+          </button>
+        </div>
+
+        {creditCards.length === 0 && !showAddCard && (
+          <p className="text-slate-500 text-sm py-4 text-center">No credit cards added yet.</p>
+        )}
+
+        <div className="space-y-3">
+          {creditCards.map((c) => {
+            const isEditing = editingCardId === c.id;
+            const utilization = c.limit > 0 ? Math.min(100, (c.currentBalance / c.limit) * 100) : 0;
+            const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
+            const dueSoon = daysUntilDue <= 5;
+
+            if (isEditing) {
+              return (
+                <div key={c.id} className="flex items-end gap-2 bg-slate-800/60 rounded-xl p-3">
+                  <div className="flex-1">
+                    <label className="label">Name</label>
+                    <input className="input" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} />
+                  </div>
+                  <div className="w-28">
+                    <label className="label">Limit</label>
+                    <MoneyInput className="input" value={cardDraft.limit} onChange={raw => setCardDraft(d => ({ ...d, limit: raw }))} />
+                  </div>
+                  <div className="w-28">
+                    <label className="label">Balance</label>
+                    <MoneyInput className="input" value={cardDraft.currentBalance} onChange={raw => setCardDraft(d => ({ ...d, currentBalance: raw }))} />
+                  </div>
+                  <div className="w-28">
+                    <label className="label">Statement day</label>
+                    <select
+                      className="input"
+                      value={cardDraft.statementDay}
+                      onChange={e => setCardDraft(d => ({ ...d, statementDay: e.target.value }))}
+                    >
+                      {DAYS_OF_MONTH.map(day => (
+                        <option key={day} value={day}>{ordinal(day)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-28">
+                    <label className="label">Due day</label>
+                    <select
+                      className="input"
+                      value={cardDraft.dueDay}
+                      onChange={e => setCardDraft(d => ({ ...d, dueDay: e.target.value }))}
+                    >
+                      {DAYS_OF_MONTH.map(day => (
+                        <option key={day} value={day}>{ordinal(day)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button onClick={saveCardEdit} className="btn-primary p-2"><Check size={14} /></button>
+                  <button onClick={() => setEditingCardId(null)} className="btn-secondary p-2"><X size={14} /></button>
+                </div>
+              );
+            }
+
+            return (
+              <div key={c.id} className="flex items-center justify-between gap-4 bg-slate-800/40 rounded-xl p-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.color + '20' }}>
+                    <CreditCardIcon size={16} style={{ color: c.color }} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm text-white font-medium truncate">{c.name}</div>
+                    <div className="text-xs text-slate-500">
+                      Statement day {c.statementDay} · Due day {c.dueDay}
+                      {dueSoon && <span className="text-amber-400 ml-1.5">· due in {daysUntilDue}d</span>}
+                    </div>
+                  </div>
+                </div>
+                <div className="w-40 shrink-0">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-400">{formatCurrency(c.currentBalance)}</span>
+                    <span className="text-slate-500">of {formatCurrency(c.limit)}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${utilization}%`, background: utilization > 80 ? '#f43f5e' : c.color }} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => startEditCard(c)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-white transition-colors">
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={() => deleteCreditCard(c.id)} className="p-1.5 rounded-lg hover:bg-rose-500/15 text-slate-500 hover:text-rose-400 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {showAddCard && (
+            <div className="flex items-end gap-2 bg-slate-800/60 rounded-xl p-3">
+              <div className="flex-1">
+                <label className="label">Card name</label>
+                <input className="input" value={newCard.name} onChange={e => setNewCard(d => ({ ...d, name: e.target.value }))} />
+              </div>
+              <div className="w-28">
+                <label className="label">Limit</label>
+                <MoneyInput className="input" value={newCard.limit} onChange={raw => setNewCard(d => ({ ...d, limit: raw }))} />
+              </div>
+              <div className="w-28">
+                <label className="label">Balance</label>
+                <MoneyInput className="input" value={newCard.currentBalance} onChange={raw => setNewCard(d => ({ ...d, currentBalance: raw }))} />
+              </div>
+              <div className="w-28">
+                <label className="label">Statement day</label>
+                <select
+                  className="input"
+                  value={newCard.statementDay}
+                  onChange={e => setNewCard(d => ({ ...d, statementDay: e.target.value }))}
+                >
+                  {DAYS_OF_MONTH.map(day => (
+                    <option key={day} value={day}>{ordinal(day)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-28">
+                <label className="label">Due day</label>
+                <select
+                  className="input"
+                  value={newCard.dueDay}
+                  onChange={e => setNewCard(d => ({ ...d, dueDay: e.target.value }))}
+                >
+                  {DAYS_OF_MONTH.map(day => (
+                    <option key={day} value={day}>{ordinal(day)}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={submitNewCard} className="btn-primary p-2"><Check size={14} /></button>
+              <button onClick={() => setShowAddCard(false)} className="btn-secondary p-2"><X size={14} /></button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal */}

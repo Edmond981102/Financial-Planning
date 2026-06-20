@@ -37,7 +37,7 @@ const emptyForm: TxForm = {
 };
 
 export default function Transactions() {
-  const { transactions, accounts, budgetTemplate, myrToSgdRate, setMyrToSgdRate, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
+  const { transactions, accounts, creditCards, budgetTemplate, myrToSgdRate, setMyrToSgdRate, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<TxForm>(emptyForm);
@@ -198,6 +198,7 @@ export default function Transactions() {
             ) : (
               filtered.map(t => {
                 const account = accounts.find(a => a.id === t.accountId);
+                const card = !account ? creditCards.find(c => c.id === t.accountId) : undefined;
                 return (
                 <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
                   <td className="px-5 py-3 text-slate-400 whitespace-nowrap">{formatDate(t.date, 'MMM d, yyyy')}</td>
@@ -210,6 +211,11 @@ export default function Transactions() {
                       <span className="text-xs flex items-center gap-1.5 text-slate-300">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: account.color }} />
                         {account.name}
+                      </span>
+                    ) : card ? (
+                      <span className="text-xs flex items-center gap-1.5 text-slate-300">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.color }} />
+                        {card.name}
                       </span>
                     ) : (
                       <span className="text-xs text-slate-600">—</span>
@@ -300,7 +306,16 @@ export default function Transactions() {
                   <label className="label">Account</label>
                   <select className="input" value={form.accountId} onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
                     <option value="">No account</option>
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    {accounts.length > 0 && (
+                      <optgroup label="Accounts">
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </optgroup>
+                    )}
+                    {creditCards.length > 0 && (
+                      <optgroup label="Credit Cards">
+                        {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               </div>
