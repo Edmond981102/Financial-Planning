@@ -11,6 +11,16 @@ function advanceBillingDate(date: Date, frequency: SubscriptionFrequency): Date 
   }
 }
 
+// Credit card currentBalance isn't derived from transactions like account balances are,
+// so a transfer paying off a card has to nudge its balance directly when applied (sign=1)
+// or reversed (sign=-1) on edit/delete.
+function applyTransferToCreditCards(creditCards: CreditCard[], t: Transaction, sign: 1 | -1): CreditCard[] {
+  if (t.type !== 'transfer' || !t.toAccountId) return creditCards;
+  return creditCards.map((c) =>
+    c.id === t.toAccountId ? { ...c, currentBalance: c.currentBalance - sign * t.amount } : c
+  );
+}
+
 const SAMPLE_TRANSACTIONS: Transaction[] = [
   // April 2026
   { id: 'tx-001', date: '2026-04-01', amount: 6000, category: 'Salary', description: 'Monthly Salary', type: 'income' },
@@ -197,22 +207,33 @@ export const useFinanceStore = create<FinanceStore>()(
       setActiveView: (view) => set({ activeView: view }),
 
       addTransaction: (t) =>
-        set((state) => ({
-          transactions: [
-            { ...t, id: `tx-${crypto.randomUUID()}` },
-            ...state.transactions,
-          ],
-        })),
+        set((state) => {
+          const newTx = { ...t, id: `tx-${crypto.randomUUID()}` };
+          return {
+            transactions: [newTx, ...state.transactions],
+            creditCards: applyTransferToCreditCards(state.creditCards, newTx, 1),
+          };
+        }),
       updateTransaction: (id, updates) =>
-        set((state) => ({
-          transactions: state.transactions.map((t) =>
-            t.id === id ? { ...t, ...updates } : t
-          ),
-        })),
+        set((state) => {
+          const existing = state.transactions.find((t) => t.id === id);
+          if (!existing) return {};
+          const updated = { ...existing, ...updates };
+          let creditCards = applyTransferToCreditCards(state.creditCards, existing, -1);
+          creditCards = applyTransferToCreditCards(creditCards, updated, 1);
+          return {
+            transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
+            creditCards,
+          };
+        }),
       deleteTransaction: (id) =>
-        set((state) => ({
-          transactions: state.transactions.filter((t) => t.id !== id),
-        })),
+        set((state) => {
+          const existing = state.transactions.find((t) => t.id === id);
+          return {
+            transactions: state.transactions.filter((t) => t.id !== id),
+            creditCards: existing ? applyTransferToCreditCards(state.creditCards, existing, -1) : state.creditCards,
+          };
+        }),
 
       addSubscription: (s) =>
         set((state) => ({

@@ -1,4 +1,4 @@
-export type TransactionType = 'income' | 'expense' | 'saving';
+export type TransactionType = 'income' | 'expense' | 'saving' | 'transfer';
 
 export type ExpenseCategory =
   | 'Housing' | 'Food & Dining' | 'Transport' | 'Health' | 'Entertainment'
@@ -17,7 +17,8 @@ export interface Transaction {
   description: string;
   type: TransactionType;
   tags?: string[];
-  accountId?: string;
+  accountId?: string; // for transfers, the source account/credit card
+  toAccountId?: string; // destination account/credit card; only set when type is 'transfer'
 }
 
 export type SubscriptionFrequency = 'weekly' | 'monthly' | 'yearly';

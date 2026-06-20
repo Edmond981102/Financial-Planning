@@ -77,9 +77,11 @@ export function getInvestmentReturn(investments: Investment[]): number {
 }
 
 export function getAccountBalance(account: Account, transactions: Transaction[]): number {
-  const delta = transactions
-    .filter(t => t.accountId === account.id)
-    .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+  const delta = transactions.reduce((sum, t) => {
+    if (t.accountId === account.id) return sum + (t.type === 'income' ? t.amount : -t.amount);
+    if (t.type === 'transfer' && t.toAccountId === account.id) return sum + t.amount;
+    return sum;
+  }, 0);
   return account.openingBalance + delta;
 }
 

@@ -16,21 +16,23 @@ const INCOME_CATEGORIES = [
   'Business', 'Bonus', 'Gift', 'Other',
 ];
 
-type FilterType = 'all' | 'income' | 'expense' | 'saving';
+type FilterType = 'all' | 'income' | 'expense' | 'saving' | 'transfer';
 
 interface TxForm {
   date: string;
   amount: string;
   description: string;
   category: string;
-  type: 'income' | 'expense' | 'saving';
+  type: 'income' | 'expense' | 'saving' | 'transfer';
   accountId: string;
+  toAccountId: string;
 }
 
 const TYPE_STYLES: Record<TxForm['type'], { badge: string; amount: string; sign: string; active: string }> = {
   income: { badge: 'bg-emerald-500/15 text-emerald-400', amount: 'text-emerald-400', sign: '+', active: 'bg-emerald-500 text-white' },
   expense: { badge: 'bg-rose-500/15 text-rose-400', amount: 'text-rose-400', sign: '-', active: 'bg-rose-500 text-white' },
   saving: { badge: 'bg-sky-500/15 text-sky-400', amount: 'text-sky-400', sign: '-', active: 'bg-sky-500 text-white' },
+  transfer: { badge: 'bg-violet-500/15 text-violet-400', amount: 'text-violet-400', sign: '', active: 'bg-violet-500 text-white' },
 };
 
 const emptyForm: TxForm = {
@@ -40,6 +42,7 @@ const emptyForm: TxForm = {
   category: 'Food & Dining',
   type: 'expense',
   accountId: '',
+  toAccountId: '',
 };
 
 export default function Transactions() {
@@ -81,7 +84,7 @@ export default function Transactions() {
   function openEdit(id: string) {
     const t = transactions.find(x => x.id === id);
     if (!t) return;
-    setForm({ date: t.date, amount: String(t.amount), description: t.description, category: t.category, type: t.type, accountId: t.accountId ?? '' });
+    setForm({ date: t.date, amount: String(t.amount), description: t.description, category: t.category, type: t.type, accountId: t.accountId ?? '', toAccountId: t.toAccountId ?? '' });
     setEditId(id);
     setAmountCurrency('SGD');
     setShowModal(true);
@@ -89,6 +92,7 @@ export default function Transactions() {
 
   function handleSubmit() {
     if (!form.amount || !form.description || !form.date) return;
+    if (form.type === 'transfer' && (!form.accountId || !form.toAccountId || form.accountId === form.toAccountId)) return;
     const enteredAmount = parseFloat(form.amount) || 0;
     const payload = {
       date: form.date,
@@ -97,6 +101,7 @@ export default function Transactions() {
       category: form.category,
       type: form.type,
       accountId: form.accountId || undefined,
+      toAccountId: form.type === 'transfer' ? form.toAccountId || undefined : undefined,
     };
     if (editId) {
       updateTransaction(editId, payload);
@@ -170,6 +175,7 @@ export default function Transactions() {
           <option value="income">Income</option>
           <option value="expense">Expense</option>
           <option value="saving">Saving</option>
+          <option value="transfer">Transfer</option>
         </select>
         <input
           type="month"
@@ -209,8 +215,13 @@ export default function Transactions() {
               </tr>
             ) : (
               filtered.map(t => {
-                const account = accounts.find(a => a.id === t.accountId);
-                const card = !account ? creditCards.find(c => c.id === t.accountId) : undefined;
+                const findLabel = (id?: string) => {
+                  const account = accounts.find(a => a.id === id);
+                  if (account) return account;
+                  return creditCards.find(c => c.id === id);
+                };
+                const from = findLabel(t.accountId);
+                const to = t.type === 'transfer' ? findLabel(t.toAccountId) : undefined;
                 return (
                 <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
                   <td className="px-5 py-3 text-slate-400 whitespace-nowrap">{formatDate(t.date, 'MMM d, yyyy')}</td>
@@ -219,15 +230,16 @@ export default function Transactions() {
                     <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300">{t.category}</span>
                   </td>
                   <td className="px-4 py-3">
-                    {account ? (
-                      <span className="text-xs flex items-center gap-1.5 text-slate-300">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: account.color }} />
-                        {account.name}
+                    {t.type === 'transfer' ? (
+                      <span className="text-xs flex items-center gap-1.5 text-slate-300 whitespace-nowrap">
+                        {from ? <><span className="w-2 h-2 rounded-full shrink-0" style={{ background: from.color }} />{from.name}</> : '—'}
+                        <span className="text-slate-600">→</span>
+                        {to ? <><span className="w-2 h-2 rounded-full shrink-0" style={{ background: to.color }} />{to.name}</> : '—'}
                       </span>
-                    ) : card ? (
+                    ) : from ? (
                       <span className="text-xs flex items-center gap-1.5 text-slate-300">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: card.color }} />
-                        {card.name}
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: from.color }} />
+                        {from.name}
                       </span>
                     ) : (
                       <span className="text-xs text-slate-600">—</span>
@@ -272,11 +284,16 @@ export default function Transactions() {
             <div className="space-y-4">
               {/* Type Toggle */}
               <div className="flex rounded-xl overflow-hidden border border-slate-700 p-1 gap-1">
-                {(['expense', 'saving', 'income'] as const).map(type => (
+                {(['expense', 'saving', 'income', 'transfer'] as const).map(type => (
                   <button
                     key={type}
-                    onClick={() => setForm(f => ({ ...f, type, category: type === 'income' ? 'Salary' : expenseCategories[0] }))}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      type,
+                      category: type === 'income' ? 'Salary' : type === 'transfer' ? 'Transfer' : expenseCategories[0],
+                      toAccountId: type === 'transfer' ? f.toAccountId : '',
+                    }))}
+                    className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-medium capitalize transition-colors ${
                       form.type === type ? TYPE_STYLES[type].active : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -305,6 +322,42 @@ export default function Transactions() {
                   <input className="input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
                 </div>
               </div>
+              {form.type === 'transfer' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">From Account *</label>
+                    <select className="input" value={form.accountId} onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
+                      <option value="">Select account</option>
+                      {accounts.length > 0 && (
+                        <optgroup label="Accounts">
+                          {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </optgroup>
+                      )}
+                      {creditCards.length > 0 && (
+                        <optgroup label="Credit Cards">
+                          {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">To Account *</label>
+                    <select className="input" value={form.toAccountId} onChange={e => setForm(f => ({ ...f, toAccountId: e.target.value }))}>
+                      <option value="">Select account</option>
+                      {accounts.length > 0 && (
+                        <optgroup label="Accounts">
+                          {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </optgroup>
+                      )}
+                      {creditCards.length > 0 && (
+                        <optgroup label="Credit Cards">
+                          {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Category</label>
@@ -329,6 +382,7 @@ export default function Transactions() {
                   </select>
                 </div>
               </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
                 <button onClick={handleSubmit} className="btn-primary flex-1 flex items-center justify-center gap-2">
