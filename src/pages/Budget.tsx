@@ -53,7 +53,7 @@ export default function Budget() {
   const currentRealMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
   const [editMode, setEditMode] = useState(false);
-  const [draftBudget, setDraftBudget] = useState<Record<string, string>>({});
+  const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string }[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
 
@@ -95,17 +95,22 @@ export default function Budget() {
   }));
 
   function startEdit() {
-    const draft: Record<string, string> = {};
-    Object.entries(budgetCategories).forEach(([k, v]) => { draft[k] = String(v); });
-    setDraftBudget(draft);
+    setDraftCategories(
+      Object.entries(budgetCategories).map(([name, amount]) => ({
+        id: crypto.randomUUID(),
+        name,
+        amount: String(amount),
+      }))
+    );
     setEditMode(true);
   }
 
   function saveBudget() {
     const categories: Record<string, number> = {};
-    Object.entries(draftBudget).forEach(([k, v]) => {
-      const val = parseFloat(v);
-      if (!isNaN(val) && val >= 0) categories[k] = val;
+    draftCategories.forEach(({ name, amount }) => {
+      const trimmedName = name.trim();
+      const val = parseFloat(amount);
+      if (trimmedName && !isNaN(val) && val >= 0) categories[trimmedName] = val;
     });
     updateBudgetTemplate(categories);
     setEditMode(false);
@@ -113,18 +118,22 @@ export default function Budget() {
 
   function addCategory() {
     const name = newCatName.trim();
-    if (!name || draftBudget[name] !== undefined) return;
-    setDraftBudget(d => ({ ...d, [name]: newCatAmount || '0' }));
+    if (!name || draftCategories.some(c => c.name === name)) return;
+    setDraftCategories(d => [...d, { id: crypto.randomUUID(), name, amount: newCatAmount || '0' }]);
     setNewCatName('');
     setNewCatAmount('');
   }
 
-  function removeCategory(category: string) {
-    setDraftBudget(d => {
-      const next = { ...d };
-      delete next[category];
-      return next;
-    });
+  function removeCategory(id: string) {
+    setDraftCategories(d => d.filter(c => c.id !== id));
+  }
+
+  function renameCategory(id: string, name: string) {
+    setDraftCategories(d => d.map(c => (c.id === id ? { ...c, name } : c)));
+  }
+
+  function setCategoryAmount(id: string, amount: string) {
+    setDraftCategories(d => d.map(c => (c.id === id ? { ...c, amount } : c)));
   }
 
   const thisMonthIncome = getMonthIncome(transactions, currentRealMonth);
@@ -288,61 +297,103 @@ export default function Budget() {
       <div className="card">
         <h2 className="text-sm font-semibold text-white mb-4">Category Breakdown</h2>
         <div className="space-y-3">
-          {(editMode ? Object.keys(draftBudget) : Object.keys(budgetCategories)).map((category) => {
-            const budget = editMode ? (parseFloat(draftBudget[category]) || 0) : budgetCategories[category];
-            const actual = actualByCategory[category] || 0;
-            const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
-            const over = actual > budget;
-            const remaining = budget - actual;
+          {editMode
+            ? draftCategories.map((draft) => {
+                const budget = parseFloat(draft.amount) || 0;
+                const actual = actualByCategory[draft.name] || 0;
+                const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
+                const over = actual > budget;
+                const remaining = budget - actual;
 
-            return (
-              <div key={category} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    {over ? (
-                      <AlertTriangle size={13} className="text-rose-400" />
-                    ) : pct >= 80 ? (
-                      <TrendingUp size={13} className="text-amber-400" />
-                    ) : (
-                      <CheckCircle size={13} className="text-emerald-400" />
-                    )}
-                    <span className="text-slate-300">{category}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {editMode ? (
-                      <MoneyInput
-                        className="input w-24 text-right py-1"
-                        value={draftBudget[category] || ''}
-                        onChange={raw => setDraftBudget(d => ({ ...d, [category]: raw }))}
+                return (
+                  <div key={draft.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {over ? (
+                          <AlertTriangle size={13} className="text-rose-400 shrink-0" />
+                        ) : pct >= 80 ? (
+                          <TrendingUp size={13} className="text-amber-400 shrink-0" />
+                        ) : (
+                          <CheckCircle size={13} className="text-emerald-400 shrink-0" />
+                        )}
+                        <input
+                          type="text"
+                          className="input py-1 text-sm flex-1 min-w-0"
+                          value={draft.name}
+                          onChange={e => renameCategory(draft.id, e.target.value)}
+                        />
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <MoneyInput
+                          className="input w-24 text-right py-1"
+                          value={draft.amount}
+                          onChange={raw => setCategoryAmount(draft.id, raw)}
+                        />
+                        <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
+                          {formatCurrency(actual)} spent
+                        </span>
+                        <span className={`text-xs w-24 text-right ${remaining < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          {remaining < 0 ? `-${formatCurrency(Math.abs(remaining))}` : `${formatCurrency(remaining)} left`}
+                        </span>
+                        <button onClick={() => removeCategory(draft.id)} className="p-1 rounded-lg hover:bg-rose-500/15 text-slate-500 hover:text-rose-400 transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          background: over ? '#f43f5e' : pct >= 80 ? '#f59e0b' : '#10b981',
+                        }}
                       />
-                    ) : (
-                      <span className="text-slate-500 text-xs">budget: {formatCurrency(budget)}</span>
-                    )}
-                    <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
-                      {formatCurrency(actual)} spent
-                    </span>
-                    <span className={`text-xs w-24 text-right ${remaining < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                      {remaining < 0 ? `-${formatCurrency(Math.abs(remaining))}` : `${formatCurrency(remaining)} left`}
-                    </span>
-                    {editMode && (
-                      <button onClick={() => removeCategory(category)} className="p-1 rounded-lg hover:bg-rose-500/15 text-slate-500 hover:text-rose-400 transition-colors">
-                        <Trash2 size={13} />
-                      </button>
-                    )}
+                    </div>
                   </div>
-                </div>
-                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${pct}%`,
-                      background: over ? '#f43f5e' : pct >= 80 ? '#f59e0b' : '#10b981',
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+                );
+              })
+            : Object.keys(budgetCategories).map((category) => {
+                const budget = budgetCategories[category];
+                const actual = actualByCategory[category] || 0;
+                const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
+                const over = actual > budget;
+                const remaining = budget - actual;
+
+                return (
+                  <div key={category} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        {over ? (
+                          <AlertTriangle size={13} className="text-rose-400" />
+                        ) : pct >= 80 ? (
+                          <TrendingUp size={13} className="text-amber-400" />
+                        ) : (
+                          <CheckCircle size={13} className="text-emerald-400" />
+                        )}
+                        <span className="text-slate-300">{category}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-slate-500 text-xs">budget: {formatCurrency(budget)}</span>
+                        <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
+                          {formatCurrency(actual)} spent
+                        </span>
+                        <span className={`text-xs w-24 text-right ${remaining < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          {remaining < 0 ? `-${formatCurrency(Math.abs(remaining))}` : `${formatCurrency(remaining)} left`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          background: over ? '#f43f5e' : pct >= 80 ? '#f59e0b' : '#10b981',
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
 
           {editMode && (
             <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
