@@ -7,6 +7,7 @@ import { getMonthExpenses, getMonthIncome, getMonthTransactions, getCategoryTota
 import { format, subMonths, setDate, isBefore, addMonths, differenceInCalendarDays } from 'date-fns';
 import { CreditCard } from '../types';
 import MoneyInput from '../components/common/MoneyInput';
+import CurrencyToggle from '../components/common/CurrencyToggle';
 
 const CARD_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'];
 
@@ -49,13 +50,15 @@ export default function Budget() {
   const {
     transactions, budgetTemplate, budgetHistory, updateBudgetTemplate,
     investments, profile, creditCards, addCreditCard, updateCreditCard, deleteCreditCard,
+    myrToSgdRate, setMyrToSgdRate,
   } = useFinanceStore();
   const currentRealMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
   const [editMode, setEditMode] = useState(false);
-  const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string }[]>([]);
+  const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string; currency: 'SGD' | 'MYR' }[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
+  const [newCatCurrency, setNewCatCurrency] = useState<'SGD' | 'MYR'>('SGD');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
@@ -101,6 +104,7 @@ export default function Budget() {
         id: crypto.randomUUID(),
         name,
         amount: String(amount),
+        currency: 'SGD' as const,
       }))
     );
     setEditMode(true);
@@ -108,10 +112,12 @@ export default function Budget() {
 
   function saveBudget() {
     const categories: Record<string, number> = {};
-    draftCategories.forEach(({ name, amount }) => {
+    draftCategories.forEach(({ name, amount, currency }) => {
       const trimmedName = name.trim();
       const val = parseFloat(amount);
-      if (trimmedName && !isNaN(val) && val >= 0) categories[trimmedName] = val;
+      if (trimmedName && !isNaN(val) && val >= 0) {
+        categories[trimmedName] = currency === 'MYR' ? val * myrToSgdRate : val;
+      }
     });
     updateBudgetTemplate(categories);
     setEditMode(false);
@@ -120,9 +126,12 @@ export default function Budget() {
   function addCategory() {
     const name = newCatName.trim();
     if (!name || draftCategories.some(c => c.name === name)) return;
-    setDraftCategories(d => [...d, { id: crypto.randomUUID(), name, amount: newCatAmount || '0' }]);
+    const rawAmount = parseFloat(newCatAmount) || 0;
+    const sgdAmount = newCatCurrency === 'MYR' ? rawAmount * myrToSgdRate : rawAmount;
+    setDraftCategories(d => [...d, { id: crypto.randomUUID(), name, amount: String(sgdAmount), currency: 'SGD' }]);
     setNewCatName('');
     setNewCatAmount('');
+    setNewCatCurrency('SGD');
   }
 
   function removeCategory(id: string) {
@@ -135,6 +144,10 @@ export default function Budget() {
 
   function setCategoryAmount(id: string, amount: string) {
     setDraftCategories(d => d.map(c => (c.id === id ? { ...c, amount } : c)));
+  }
+
+  function setCategoryCurrency(id: string, currency: 'SGD' | 'MYR') {
+    setDraftCategories(d => d.map(c => (c.id === id ? { ...c, currency } : c)));
   }
 
   function moveCategory(from: number, to: number) {
@@ -346,11 +359,18 @@ export default function Budget() {
                           onChange={e => renameCategory(draft.id, e.target.value)}
                         />
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap justify-end">
                         <MoneyInput
                           className="input w-24 text-right py-1"
                           value={draft.amount}
                           onChange={raw => setCategoryAmount(draft.id, raw)}
+                        />
+                        <CurrencyToggle
+                          currency={draft.currency}
+                          onCurrencyChange={c => setCategoryCurrency(draft.id, c)}
+                          rate={myrToSgdRate}
+                          onRateChange={setMyrToSgdRate}
+                          convertedAmount={draft.currency === 'MYR' ? (parseFloat(draft.amount) || 0) * myrToSgdRate : undefined}
                         />
                         <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
                           {formatCurrency(actual)} spent
@@ -419,11 +439,11 @@ export default function Budget() {
               })}
 
           {editMode && (
-            <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+            <div className="flex items-center gap-2 pt-3 border-t border-slate-800 flex-wrap">
               <input
                 type="text"
                 placeholder="New category name"
-                className="input flex-1 py-1.5 text-sm"
+                className="input flex-1 py-1.5 text-sm min-w-32"
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
               />
@@ -432,6 +452,13 @@ export default function Budget() {
                 className="input w-28 py-1.5 text-sm"
                 value={newCatAmount}
                 onChange={raw => setNewCatAmount(raw)}
+              />
+              <CurrencyToggle
+                currency={newCatCurrency}
+                onCurrencyChange={setNewCatCurrency}
+                rate={myrToSgdRate}
+                onRateChange={setMyrToSgdRate}
+                convertedAmount={newCatCurrency === 'MYR' ? (parseFloat(newCatAmount) || 0) * myrToSgdRate : undefined}
               />
               <button onClick={addCategory} className="btn-secondary py-1.5 px-3 flex items-center gap-1.5 shrink-0">
                 <Plus size={13} /> Add

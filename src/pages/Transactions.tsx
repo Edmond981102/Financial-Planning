@@ -4,6 +4,7 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { format } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
+import CurrencyToggle from '../components/common/CurrencyToggle';
 
 const EXPENSE_CATEGORIES = [
   'Housing', 'Food & Dining', 'Transport', 'Health', 'Entertainment',
@@ -36,10 +37,11 @@ const emptyForm: TxForm = {
 };
 
 export default function Transactions() {
-  const { transactions, accounts, budgetTemplate, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
+  const { transactions, accounts, budgetTemplate, myrToSgdRate, setMyrToSgdRate, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<TxForm>(emptyForm);
+  const [amountCurrency, setAmountCurrency] = useState<'SGD' | 'MYR'>('SGD');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterMonth, setFilterMonth] = useState('');
@@ -64,6 +66,7 @@ export default function Transactions() {
   function openAdd() {
     setForm(emptyForm);
     setEditId(null);
+    setAmountCurrency('SGD');
     setShowModal(true);
   }
 
@@ -72,14 +75,16 @@ export default function Transactions() {
     if (!t) return;
     setForm({ date: t.date, amount: String(t.amount), description: t.description, category: t.category, type: t.type, accountId: t.accountId ?? '' });
     setEditId(id);
+    setAmountCurrency('SGD');
     setShowModal(true);
   }
 
   function handleSubmit() {
     if (!form.amount || !form.description || !form.date) return;
+    const enteredAmount = parseFloat(form.amount) || 0;
     const payload = {
       date: form.date,
-      amount: parseFloat(form.amount),
+      amount: amountCurrency === 'MYR' ? enteredAmount * myrToSgdRate : enteredAmount,
       description: form.description,
       category: form.category,
       type: form.type,
@@ -266,6 +271,13 @@ export default function Transactions() {
                 <div>
                   <label className="label">Amount *</label>
                   <MoneyInput className="input" placeholder="0.00" value={form.amount} onChange={raw => setForm(f => ({ ...f, amount: raw }))} />
+                  <CurrencyToggle
+                    currency={amountCurrency}
+                    onCurrencyChange={setAmountCurrency}
+                    rate={myrToSgdRate}
+                    onRateChange={setMyrToSgdRate}
+                    convertedAmount={amountCurrency === 'MYR' ? (parseFloat(form.amount) || 0) * myrToSgdRate : undefined}
+                  />
                 </div>
                 <div>
                   <label className="label">Date *</label>

@@ -121,6 +121,7 @@ interface FinanceStore {
   profile: UserProfile;
   activeView: string;
   onboardingComplete: boolean;
+  myrToSgdRate: number; // user-editable; used to convert MYR amounts entered in Budget/Transactions into SGD, the app's base currency
 
   setActiveView: (view: string) => void;
 
@@ -156,6 +157,7 @@ interface FinanceStore {
   updateProfile: (updates: Partial<UserProfile>) => void;
   completeOnboarding: () => void;
   reopenOnboarding: () => void;
+  setMyrToSgdRate: (rate: number) => void;
 
   hydrateFromCloud: (data: SyncableState) => void;
   getSyncableState: () => SyncableState;
@@ -172,6 +174,7 @@ export interface SyncableState {
   creditCards: CreditCard[];
   accounts: Account[];
   profile: UserProfile;
+  myrToSgdRate: number;
 }
 
 export const useFinanceStore = create<FinanceStore>()(
@@ -189,6 +192,7 @@ export const useFinanceStore = create<FinanceStore>()(
       profile: SAMPLE_PROFILE,
       activeView: 'dashboard',
       onboardingComplete: false,
+      myrToSgdRate: 0.29,
 
       setActiveView: (view) => set({ activeView: view }),
 
@@ -362,8 +366,9 @@ export const useFinanceStore = create<FinanceStore>()(
         })),
       completeOnboarding: () => set({ onboardingComplete: true }),
       reopenOnboarding: () => set({ onboardingComplete: false }),
+      setMyrToSgdRate: (rate) => set({ myrToSgdRate: rate }),
 
-      hydrateFromCloud: (data) => set(() => ({ ...data, accounts: data.accounts ?? [] })),
+      hydrateFromCloud: (data) => set(() => ({ ...data, accounts: data.accounts ?? [], myrToSgdRate: data.myrToSgdRate ?? 0.29 })),
       getSyncableState: () => {
         const s = get();
         return {
@@ -377,6 +382,7 @@ export const useFinanceStore = create<FinanceStore>()(
           creditCards: s.creditCards,
           accounts: s.accounts,
           profile: s.profile,
+          myrToSgdRate: s.myrToSgdRate,
         };
       },
     }),
