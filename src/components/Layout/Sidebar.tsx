@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { supabase } from '../../lib/supabase';
+import { getCpfBreakdown } from '../../utils/cpf';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const { activeView, setActiveView, profile, reopenOnboarding } = useFinanceStore();
+  const takeHomePay = getCpfBreakdown(profile).takeHomePay;
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen">
@@ -43,7 +45,8 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-medium text-white truncate">{profile.name}</div>
-              <div className="text-xs text-emerald-400">{profile.currencySymbol}{profile.monthlyIncome.toLocaleString()} / mo</div>
+              <div className="text-xs text-emerald-400">{profile.currencySymbol}{Math.round(takeHomePay).toLocaleString()} / mo</div>
+              <div className="text-[10px] text-slate-500">take-home, after CPF</div>
             </div>
           </div>
           <button
