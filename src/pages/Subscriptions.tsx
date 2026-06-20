@@ -23,6 +23,7 @@ interface SubForm {
   icon?: string;
   endDate: string;
   paymentMethod: SubscriptionPaymentMethod;
+  accountId: string;
 }
 
 const emptyForm: SubForm = {
@@ -35,6 +36,7 @@ const emptyForm: SubForm = {
   icon: undefined,
   endDate: '',
   paymentMethod: 'manual',
+  accountId: '',
 };
 
 function isEnded(sub: Subscription): boolean {
@@ -65,7 +67,7 @@ function SubIcon({ sub }: { sub: Subscription }) {
 }
 
 export default function Subscriptions() {
-  const { subscriptions, addSubscription, updateSubscription, deleteSubscription } = useFinanceStore();
+  const { subscriptions, accounts, creditCards, addSubscription, updateSubscription, deleteSubscription } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SubForm>(emptyForm);
@@ -93,6 +95,7 @@ export default function Subscriptions() {
       icon: sub.icon,
       endDate: sub.endDate || '',
       paymentMethod: sub.paymentMethod || 'manual',
+      accountId: sub.accountId ?? '',
     });
     setEditId(sub.id);
     setShowModal(true);
@@ -118,6 +121,7 @@ export default function Subscriptions() {
       icon: form.icon,
       endDate: form.endDate || undefined,
       paymentMethod: form.paymentMethod,
+      accountId: form.accountId || undefined,
     };
     if (editId) {
       updateSubscription(editId, payload);
@@ -335,6 +339,23 @@ export default function Subscriptions() {
                     ? 'An expense transaction will be created automatically each time this bill is due.'
                     : "You'll add the expense transaction yourself when you pay."}
                 </p>
+              </div>
+              <div>
+                <label className="label">Account</label>
+                <select className="input" value={form.accountId} onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
+                  <option value="">No account</option>
+                  {accounts.length > 0 && (
+                    <optgroup label="Accounts">
+                      {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </optgroup>
+                  )}
+                  {creditCards.length > 0 && (
+                    <optgroup label="Credit Cards">
+                      {creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </optgroup>
+                  )}
+                </select>
+                <p className="text-xs text-slate-500 mt-1.5">The expense transaction will be tagged to this account when created.</p>
               </div>
               <div>
                 <label className="label">Icon</label>

@@ -34,6 +34,7 @@ export interface Subscription {
   icon?: string;
   endDate?: string; // last payment date, for installments / fixed-term plans like insurance
   paymentMethod?: SubscriptionPaymentMethod; // 'auto' creates an expense transaction automatically when due
+  accountId?: string; // account/credit card this subscription is paid from; tagged on auto-created expense transactions
 }
 
 export type GoalCategory =

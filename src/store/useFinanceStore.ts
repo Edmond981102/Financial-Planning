@@ -249,6 +249,7 @@ export const useFinanceStore = create<FinanceStore>()(
                 category: 'Subscriptions',
                 description: sub.name,
                 type: 'expense',
+                accountId: sub.accountId,
               });
               billingDate = advanceBillingDate(billingDate, sub.frequency);
               safety++;
