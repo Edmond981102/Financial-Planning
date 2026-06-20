@@ -152,15 +152,15 @@ export default function Budget() {
   });
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Budget Planner</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Budget Planner</h1>
           <p className="text-slate-400 text-sm mt-0.5">
             {isPastMonth ? 'Viewing a past, locked budget' : 'Set limits — changes apply to this month and onward'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <input
             type="month"
             className="input w-44"
@@ -185,7 +185,7 @@ export default function Budget() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Total Budget</div>
           <div className="text-2xl font-bold text-white">{formatCurrency(totalBudget)}</div>
@@ -209,11 +209,11 @@ export default function Budget() {
 
       {/* Income Allocation: target vs actual */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold text-white">Income Allocation — This Month</h2>
           <span className="text-xs text-slate-500">Target set during profile setup</span>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: 'Savings', target: targets.savingsPct, actual: actualSavingsPct, good: actualSavingsPct >= targets.savingsPct },
             { label: 'Expenses', target: targets.expensesPct, actual: actualExpensesPct, good: actualExpensesPct <= targets.expensesPct },
@@ -257,7 +257,7 @@ export default function Budget() {
 
       {/* Category Details */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold text-white">Category Breakdown</h2>
           <span className="text-xs text-slate-400">
             Total budget: <span className="text-white font-semibold">{formatCurrency(totalBudget)}</span>
@@ -287,8 +287,8 @@ export default function Budget() {
                     }}
                     onDragEnd={() => setDragIndex(null)}
                   >
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="flex items-center justify-between text-sm flex-wrap gap-y-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-[160px]">
                         <GripVertical size={14} className="text-slate-600 cursor-grab shrink-0" />
                         {over ? (
                           <AlertTriangle size={13} className="text-rose-400 shrink-0" />
@@ -349,7 +349,7 @@ export default function Budget() {
 
                 return (
                   <div key={category} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-sm flex-wrap gap-y-1">
                       <div className="flex items-center gap-2">
                         {over ? (
                           <AlertTriangle size={13} className="text-rose-400" />
@@ -360,7 +360,7 @@ export default function Budget() {
                         )}
                         <span className="text-slate-300">{category}</span>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 flex-wrap justify-end">
                         <span className="text-slate-500 text-xs">budget: {formatCurrency(budget)}</span>
                         <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
                           {formatCurrency(actual)} spent

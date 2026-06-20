@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { Menu, Wallet } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { useFinanceStore } from './store/useFinanceStore';
 import Login from './components/Auth/Login';
@@ -37,6 +38,7 @@ async function pushToCloud(userId: string) {
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const activeView = useFinanceStore((s) => s.activeView);
   const onboardingComplete = useFinanceStore((s) => s.onboardingComplete);
   const processAutoSubscriptions = useFinanceStore((s) => s.processAutoSubscriptions);
@@ -109,11 +111,25 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <ProfileSetupBanner />
-        <PageComponent />
-      </main>
+      <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900 shrink-0">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center">
+            <Wallet size={14} className="text-white" />
+          </div>
+          <span className="text-sm font-bold text-white">FinanceIQ</span>
+        </header>
+        <main className="flex-1 overflow-y-auto">
+          <ProfileSetupBanner />
+          <PageComponent />
+        </main>
+      </div>
     </div>
   );
 }

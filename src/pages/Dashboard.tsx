@@ -78,21 +78,21 @@ export default function Dashboard() {
   const savingsRate = thisIncome > 0 ? (thisSavings / thisIncome) * 100 : 0;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Good morning, {profile.name} 👋</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Good morning, {profile.name} 👋</h1>
           <p className="text-slate-400 text-sm mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
         </div>
-        <button className="relative p-2.5 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors border border-slate-700">
+        <button className="relative p-2.5 bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors border border-slate-700 shrink-0">
           <Bell size={18} />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-emerald-400 rounded-full" />
         </button>
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard
           title="Monthly Income"
           value={formatCurrency(thisIncome)}
@@ -137,12 +137,12 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Cash Flow Chart */}
-        <div className="col-span-2 card">
-          <div className="flex items-center justify-between mb-4">
+        <div className="lg:col-span-2 card">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-white">6-Month Cash Flow</h2>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
+            <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Income</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block" />Expenses</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" />Savings</span>
@@ -202,9 +202,9 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Transactions */}
-        <div className="col-span-2 card">
+        <div className="lg:col-span-2 card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">Recent Transactions</h2>
             <span className="text-xs text-slate-500">{recentTransactions.length} latest</span>

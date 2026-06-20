@@ -130,19 +130,19 @@ export default function Accounts() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Accounts</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Accounts</h1>
           <p className="text-slate-400 text-sm mt-0.5">Track balances across your bank accounts and wallets</p>
         </div>
-        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={16} /> New Account
         </button>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Total Balance</div>
           <div className="text-2xl font-bold text-emerald-400">{formatCurrency(totalBalance)}</div>
@@ -156,7 +156,7 @@ export default function Accounts() {
       </div>
 
       {/* Accounts grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {accounts.map(account => {
           const balance = getAccountBalance(account, transactions);
           const linkedCount = transactions.filter(t => t.accountId === account.id).length;
@@ -190,7 +190,7 @@ export default function Accounts() {
         })}
 
         {accounts.length === 0 && (
-          <div className="col-span-2 card text-center py-16">
+          <div className="sm:col-span-2 card text-center py-16">
             <Landmark size={32} className="text-slate-600 mx-auto mb-3" />
             <p className="text-slate-500">No accounts yet. Add your bank accounts or wallets to track their balances.</p>
           </div>
@@ -199,9 +199,9 @@ export default function Accounts() {
 
       {/* Credit Cards */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <h2 className="text-sm font-semibold text-white">Credit Cards</h2>
-          <button onClick={() => setShowAddCard(s => !s)} className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3">
+          <button onClick={() => setShowAddCard(s => !s)} className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3 shrink-0">
             <Plus size={13} /> Add Card
           </button>
         </div>
@@ -219,8 +219,8 @@ export default function Accounts() {
 
             if (isEditing) {
               return (
-                <div key={c.id} className="flex items-end gap-2 bg-slate-800/60 rounded-xl p-3">
-                  <div className="flex-1">
+                <div key={c.id} className="flex items-end gap-2 flex-wrap bg-slate-800/60 rounded-xl p-3">
+                  <div className="flex-1 min-w-[140px]">
                     <label className="label">Name</label>
                     <input className="input" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} />
                   </div>
@@ -263,7 +263,7 @@ export default function Accounts() {
             }
 
             return (
-              <div key={c.id} className="flex items-center justify-between gap-4 bg-slate-800/40 rounded-xl p-3">
+              <div key={c.id} className="flex items-center justify-between gap-2 sm:gap-4 bg-slate-800/40 rounded-xl p-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.color + '20' }}>
                     <CreditCardIcon size={16} style={{ color: c.color }} />
@@ -276,10 +276,10 @@ export default function Accounts() {
                     </div>
                   </div>
                 </div>
-                <div className="w-40 shrink-0">
+                <div className="w-24 sm:w-40 shrink-0">
                   <div className="flex justify-between text-xs mb-1">
                     <span className="text-slate-400">{formatCurrency(c.currentBalance)}</span>
-                    <span className="text-slate-500">of {formatCurrency(c.limit)}</span>
+                    <span className="text-slate-500 hidden sm:inline">of {formatCurrency(c.limit)}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${utilization}%`, background: utilization > 80 ? '#f43f5e' : c.color }} />
@@ -298,8 +298,8 @@ export default function Accounts() {
           })}
 
           {showAddCard && (
-            <div className="flex items-end gap-2 bg-slate-800/60 rounded-xl p-3">
-              <div className="flex-1">
+            <div className="flex items-end gap-2 flex-wrap bg-slate-800/60 rounded-xl p-3">
+              <div className="flex-1 min-w-[140px]">
                 <label className="label">Card name</label>
                 <input className="input" value={newCard.name} onChange={e => setNewCard(d => ({ ...d, name: e.target.value }))} />
               </div>

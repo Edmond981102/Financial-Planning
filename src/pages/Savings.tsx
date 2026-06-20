@@ -126,19 +126,19 @@ export default function Savings() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Savings Goals</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Savings Goals</h1>
           <p className="text-slate-400 text-sm mt-0.5">Work towards what matters</p>
         </div>
-        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={16} /> New Goal
         </button>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Total Saved</div>
           <div className="text-2xl font-bold text-emerald-400">{formatCurrency(totalSaved)}</div>
@@ -157,7 +157,7 @@ export default function Savings() {
       </div>
 
       {/* Goals Grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {savingsGoals.map(goal => {
           const pct = calculateGoalProgress(goal);
           const monthsLeft = calculateMonthsToGoal(goal);
@@ -262,7 +262,7 @@ export default function Savings() {
         })}
 
         {savingsGoals.length === 0 && (
-          <div className="col-span-2 card text-center py-16">
+          <div className="sm:col-span-2 card text-center py-16">
             <Target size={32} className="text-slate-600 mx-auto mb-3" />
             <p className="text-slate-500">No savings goals yet. Create your first one!</p>
           </div>

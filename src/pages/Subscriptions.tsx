@@ -133,19 +133,19 @@ export default function Subscriptions() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Subscriptions</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Subscriptions</h1>
           <p className="text-slate-400 text-sm mt-0.5">Manage recurring payments</p>
         </div>
-        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={16} /> Add Subscription
         </button>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Monthly Cost</div>
           <div className="text-2xl font-bold text-white">{formatCurrency(monthlyTotal)}</div>
@@ -166,7 +166,7 @@ export default function Subscriptions() {
       {/* Active Subscriptions */}
       <div>
         <h2 className="section-title">Active ({activeSubscriptions.length})</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {activeSubscriptions.map(sub => {
             const days = getDaysUntilBilling(sub.nextBillingDate);
             const monthly = getMonthlyAmount(sub.amount, sub.frequency);
@@ -218,7 +218,7 @@ export default function Subscriptions() {
       {completedSubscriptions.length > 0 && (
         <div>
           <h2 className="section-title text-slate-500">Completed ({completedSubscriptions.length})</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {completedSubscriptions.map(sub => (
               <div key={sub.id} className="card flex items-center gap-4 opacity-60 hover:opacity-90 transition-opacity">
                 <SubIcon sub={sub} />
@@ -249,7 +249,7 @@ export default function Subscriptions() {
       {inactiveSubscriptions.length > 0 && (
         <div>
           <h2 className="section-title text-slate-500">Inactive ({inactiveSubscriptions.length})</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {inactiveSubscriptions.map(sub => (
               <div key={sub.id} className="card flex items-center gap-4 opacity-50 hover:opacity-75 transition-opacity">
                 <SubIcon sub={sub} />

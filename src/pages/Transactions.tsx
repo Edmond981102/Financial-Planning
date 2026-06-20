@@ -117,19 +117,19 @@ export default function Transactions() {
     : expenseCategories.includes(form.category) ? expenseCategories : [form.category, ...expenseCategories];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Transactions</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Transactions</h1>
           <p className="text-slate-400 text-sm mt-0.5">Track every dollar in and out</p>
         </div>
-        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={16} /> Add Transaction
         </button>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="card text-center">
           <div className="text-xs text-slate-400 mb-1">Total Income</div>
           <div className="text-xl font-bold text-emerald-400">{formatCurrency(totalIncome)}</div>
@@ -189,8 +189,8 @@ export default function Transactions() {
       </div>
 
       {/* Table */}
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="border-b border-slate-800">
               <th className="text-left text-xs text-slate-500 font-medium px-5 py-3">Date</th>

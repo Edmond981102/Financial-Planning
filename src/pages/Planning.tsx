@@ -66,10 +66,10 @@ export default function Planning() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Long-term Planning</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Long-term Planning</h1>
           <p className="text-slate-400 text-sm mt-0.5">Your financial roadmap</p>
         </div>
         {editProfile ? (
@@ -88,7 +88,7 @@ export default function Planning() {
       {editProfile && (
         <div className="card">
           <h2 className="text-sm font-semibold text-white mb-4">Financial Profile</h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="label">Monthly Income</label>
               <MoneyInput className="input" value={profileDraft.monthlyIncome} onChange={raw => setProfileDraft(p => ({ ...p, monthlyIncome: Number(raw) || 0 }))} />
@@ -122,25 +122,25 @@ export default function Planning() {
       )}
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Current Net Worth</div>
-          <div className="text-2xl font-bold text-white">{formatCurrency(netWorth)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(netWorth)}</div>
           <div className="text-xs text-slate-500 mt-0.5">savings + investments + accounts</div>
         </div>
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">FIRE Target</div>
-          <div className="text-2xl font-bold text-amber-400">{formatCurrency(fireResult.targetAmount)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-amber-400">{formatCurrency(fireResult.targetAmount)}</div>
           <div className="text-xs text-slate-500 mt-0.5">25× annual expenses</div>
         </div>
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">FIRE in ~{fireResult.years} years</div>
-          <div className="text-2xl font-bold text-emerald-400">{fireYear}</div>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-400">{fireYear}</div>
           <div className="text-xs text-slate-500 mt-0.5">age {fireAge}</div>
         </div>
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Retirement at {profile.retirementAge}</div>
-          <div className="text-2xl font-bold text-blue-400">{formatCurrency(projectedRetirementWealth)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-blue-400">{formatCurrency(projectedRetirementWealth)}</div>
           <div className="text-xs text-slate-500 mt-0.5">
             {profile.retirementTargetAmount
               ? `${((projectedRetirementWealth / profile.retirementTargetAmount) * 100).toFixed(0)}% of ${formatCurrency(profile.retirementTargetAmount)} target`
@@ -151,9 +151,9 @@ export default function Planning() {
 
       {/* Net Worth Projection */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <h2 className="text-sm font-semibold text-white">30-Year Net Worth Projection</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div>
               <label className="text-xs text-slate-400 mr-1.5">Annual Return %</label>
               <input
@@ -195,7 +195,7 @@ export default function Planning() {
       </div>
 
       {/* FIRE Calculator + Emergency Fund */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* FIRE */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">

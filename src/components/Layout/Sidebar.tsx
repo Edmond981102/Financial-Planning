@@ -21,7 +21,12 @@ const NAV_ITEMS = [
   { id: 'insights', label: 'AI Insights', icon: Lightbulb },
 ];
 
-export default function Sidebar() {
+interface Props {
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}
+
+export default function Sidebar({ mobileOpen, onCloseMobile }: Props) {
   const { activeView, setActiveView, profile, reopenOnboarding } = useFinanceStore();
   const takeHomePay = getCpfBreakdown(profile).takeHomePay;
   const completion = getProfileCompletion(profile);
@@ -35,8 +40,24 @@ export default function Sidebar() {
     }
   }
 
+  function handleNavClick(id: string) {
+    setActiveView(id);
+    onCloseMobile();
+  }
+
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen">
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          onClick={onCloseMobile}
+        />
+      )}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen transition-transform duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}
+      >
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-800">
         <div className="flex items-center gap-3">
@@ -85,7 +106,7 @@ export default function Sidebar() {
           return (
             <button
               key={id}
-              onClick={() => setActiveView(id)}
+              onClick={() => handleNavClick(id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 active
                   ? 'bg-emerald-500/15 text-emerald-400'
@@ -116,6 +137,7 @@ export default function Sidebar() {
           onEdit={() => { setShowProfileSummary(false); reopenOnboarding(); }}
         />
       )}
-    </aside>
+      </aside>
+    </>
   );
 }

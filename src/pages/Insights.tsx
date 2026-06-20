@@ -87,15 +87,15 @@ export default function Insights() {
   const overallScore = Math.round(scores.reduce((s, sc) => s + sc.score, 0) / scores.length);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">AI Insights</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">AI Insights</h1>
         <p className="text-slate-400 text-sm mt-0.5">Intelligent analysis of your finances</p>
       </div>
 
       {/* Financial Health Score */}
       <div className="card">
-        <div className="flex items-start gap-6">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
           <div className="text-center shrink-0">
             <div className={`text-5xl font-black ${overallScore >= 70 ? 'text-emerald-400' : overallScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
               {overallScore}
@@ -105,7 +105,7 @@ export default function Insights() {
               {overallScore >= 70 ? '🟢 Excellent' : overallScore >= 50 ? '🟡 Good' : '🔴 Needs Work'}
             </div>
           </div>
-          <div className="flex-1 grid grid-cols-2 gap-3">
+          <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
             {scores.map(sc => (
               <div key={sc.label}>
                 <div className="flex justify-between text-xs mb-1">
@@ -181,7 +181,7 @@ export default function Insights() {
       </div>
 
       {/* Trends & Prediction */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card">
           <h2 className="text-sm font-semibold text-white mb-1">Spending Trend & Prediction</h2>
           <p className="text-xs text-slate-500 mb-4">Next month projected at {formatCurrency(predicted)}</p>
@@ -262,7 +262,7 @@ export default function Insights() {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-800">
           <div className="text-center">
             <div className="text-xs text-slate-400 mb-1">Avg Monthly Income</div>
             <div className="text-lg font-bold text-emerald-400">
