@@ -3,6 +3,7 @@ import { Wallet, ChevronRight, ChevronLeft, Plus, Trash2, CheckCircle2 } from 'l
 import { addYears, differenceInCalendarYears, format, parseISO, startOfMonth, subYears } from 'date-fns';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { getCpfBreakdown } from '../../utils/cpf';
+import { getProfileCompletion } from '../../utils/calculations';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { ResidencyStatus, GoalCategory, UserProfile } from '../../types';
 import MoneyInput from '../common/MoneyInput';
@@ -46,6 +47,11 @@ export default function OnboardingWizard() {
   const addSavingsGoal = useFinanceStore((s) => s.addSavingsGoal);
   const addCreditCard = useFinanceStore((s) => s.addCreditCard);
   const completeOnboarding = useFinanceStore((s) => s.completeOnboarding);
+
+  // A profile that was already complete before this wizard opened means the user is
+  // editing existing answers (via the sidebar settings icon), not onboarding for the
+  // first time — so every field already reflects real saved data, not a blank default.
+  const [isEditMode] = useState(() => getProfileCompletion(profile) === 'complete');
 
   const [step, setStep] = useState(0);
   const [maxStepReached, setMaxStepReached] = useState(0);
@@ -116,11 +122,11 @@ export default function OnboardingWizard() {
       retirementAge: parseFloat(retirementAge) || profile.retirementAge,
       retirementTargetAmount: retirementTargetAmount ? parseFloat(retirementTargetAmount) : profile.retirementTargetAmount,
     };
-    if (maxStepReached >= 1) {
+    if (isEditMode || maxStepReached >= 1) {
       profileUpdates.residencyStatus = residencyStatus;
       profileUpdates.prStartDate = residencyStatus === 'pr' ? (prStartDate || undefined) : undefined;
     }
-    if (maxStepReached >= 3) {
+    if (isEditMode || maxStepReached >= 3) {
       profileUpdates.allocationTargets = {
         savingsPct: parseFloat(savingsPct) || 0,
         expensesPct: parseFloat(expensesPct) || 0,
@@ -164,12 +170,14 @@ export default function OnboardingWizard() {
                 <Wallet size={18} className="text-white" />
               </div>
               <div>
-                <div className="text-sm font-bold text-white">Let's set up your financial profile</div>
-                <div className="text-xs text-slate-400">A few quick steps so FinanceIQ can tell you how to hit your goals.</div>
+                <div className="text-sm font-bold text-white">{isEditMode ? 'Edit your financial profile' : "Let's set up your financial profile"}</div>
+                <div className="text-xs text-slate-400">
+                  {isEditMode ? 'Update any answers below — your existing data is preserved.' : 'A few quick steps so FinanceIQ can tell you how to hit your goals.'}
+                </div>
               </div>
             </div>
             <button onClick={persistAndFinish} className="text-xs text-slate-500 hover:text-slate-300 transition-colors shrink-0">
-              Skip setup for now
+              {isEditMode ? 'Close' : 'Skip setup for now'}
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -386,7 +394,7 @@ export default function OnboardingWizard() {
           </button>
           {isLastStep ? (
             <button onClick={persistAndFinish} className="btn-primary flex items-center gap-1.5">
-              <CheckCircle2 size={14} /> Finish setup
+              <CheckCircle2 size={14} /> {isEditMode ? 'Save changes' : 'Finish setup'}
             </button>
           ) : (
             <button onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))} className="btn-primary flex items-center gap-1.5">

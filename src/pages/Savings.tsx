@@ -51,6 +51,7 @@ interface GoalForm {
   category: GoalCategory;
   color: string;
   monthlyContribution: string;
+  accountId: string;
 }
 
 const emptyForm: GoalForm = {
@@ -61,10 +62,11 @@ const emptyForm: GoalForm = {
   category: 'other',
   color: '#10b981',
   monthlyContribution: '',
+  accountId: '',
 };
 
 export default function Savings() {
-  const { savingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, addFundsToGoal } = useFinanceStore();
+  const { savingsGoals, accounts, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal, addFundsToGoal } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<GoalForm>(emptyForm);
@@ -90,6 +92,7 @@ export default function Savings() {
       category: goal.category,
       color: goal.color,
       monthlyContribution: String(goal.monthlyContribution || ''),
+      accountId: goal.accountId ?? '',
     });
     setEditId(goal.id);
     setShowModal(true);
@@ -105,6 +108,7 @@ export default function Savings() {
       category: form.category,
       color: form.color,
       monthlyContribution: parseFloat(form.monthlyContribution) || undefined,
+      accountId: form.accountId || undefined,
     };
     if (editId) {
       updateSavingsGoal(editId, payload);
@@ -161,6 +165,7 @@ export default function Savings() {
           const remaining = goal.targetAmount - goal.currentAmount;
           const status = getGoalStatus(goal);
           const StatusIcon = STATUS_ICONS[status.level];
+          const account = accounts.find(a => a.id === goal.accountId);
 
           return (
             <div key={goal.id} className="card space-y-4 hover:border-slate-700 transition-colors">
@@ -172,7 +177,14 @@ export default function Savings() {
                   </div>
                   <div>
                     <div className="font-semibold text-white">{goal.name}</div>
-                    <div className="text-xs text-slate-500 capitalize">{goal.category.replace('_', ' ')}</div>
+                    <div className="text-xs text-slate-500 capitalize flex items-center gap-1.5">
+                      {goal.category.replace('_', ' ')}
+                      {account && (
+                        <span className="flex items-center gap-1 normal-case">
+                          · <span className="w-1.5 h-1.5 rounded-full" style={{ background: account.color }} />{account.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -290,13 +302,22 @@ export default function Savings() {
                   <input className="input" type="date" value={form.targetDate} onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))} />
                 </div>
               </div>
-              <div>
-                <label className="label">Category</label>
-                <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as GoalCategory }))}>
-                  {(Object.keys(GOAL_ICONS) as GoalCategory[]).map(c => (
-                    <option key={c} value={c}>{GOAL_ICONS[c]} {c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Category</label>
+                  <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as GoalCategory }))}>
+                    {(Object.keys(GOAL_ICONS) as GoalCategory[]).map(c => (
+                      <option key={c} value={c}>{GOAL_ICONS[c]} {c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Account</label>
+                  <select className="input" value={form.accountId} onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
+                    <option value="">No account</option>
+                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="label">Color</label>

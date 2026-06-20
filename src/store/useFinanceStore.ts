@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, Investment, UserProfile, SubscriptionFrequency, CreditCard } from '../types';
+import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account } from '../types';
 import { addWeeks, addMonths, addYears, format, parseISO, isAfter, startOfDay } from 'date-fns';
 
 function advanceBillingDate(date: Date, frequency: SubscriptionFrequency): Date {
@@ -117,6 +117,7 @@ interface FinanceStore {
   budgetHistory: MonthlyBudget[]; // frozen snapshots for months that have already passed
   investments: Investment[];
   creditCards: CreditCard[];
+  accounts: Account[];
   profile: UserProfile;
   activeView: string;
   onboardingComplete: boolean;
@@ -148,6 +149,10 @@ interface FinanceStore {
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => void;
   deleteCreditCard: (id: string) => void;
 
+  addAccount: (a: Omit<Account, 'id'>) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => void;
+  deleteAccount: (id: string) => void;
+
   updateProfile: (updates: Partial<UserProfile>) => void;
   completeOnboarding: () => void;
   reopenOnboarding: () => void;
@@ -165,6 +170,7 @@ export interface SyncableState {
   budgetHistory: MonthlyBudget[];
   investments: Investment[];
   creditCards: CreditCard[];
+  accounts: Account[];
   profile: UserProfile;
 }
 
@@ -179,6 +185,7 @@ export const useFinanceStore = create<FinanceStore>()(
       budgetHistory: [],
       investments: SAMPLE_INVESTMENTS,
       creditCards: [],
+      accounts: [],
       profile: SAMPLE_PROFILE,
       activeView: 'dashboard',
       onboardingComplete: false,
@@ -334,6 +341,21 @@ export const useFinanceStore = create<FinanceStore>()(
           creditCards: state.creditCards.filter((c) => c.id !== id),
         })),
 
+      addAccount: (a) =>
+        set((state) => ({
+          accounts: [...state.accounts, { ...a, id: `acct-${crypto.randomUUID()}` }],
+        })),
+      updateAccount: (id, updates) =>
+        set((state) => ({
+          accounts: state.accounts.map((a) =>
+            a.id === id ? { ...a, ...updates } : a
+          ),
+        })),
+      deleteAccount: (id) =>
+        set((state) => ({
+          accounts: state.accounts.filter((a) => a.id !== id),
+        })),
+
       updateProfile: (updates) =>
         set((state) => ({
           profile: { ...state.profile, ...updates },
@@ -341,7 +363,7 @@ export const useFinanceStore = create<FinanceStore>()(
       completeOnboarding: () => set({ onboardingComplete: true }),
       reopenOnboarding: () => set({ onboardingComplete: false }),
 
-      hydrateFromCloud: (data) => set(() => ({ ...data })),
+      hydrateFromCloud: (data) => set(() => ({ ...data, accounts: data.accounts ?? [] })),
       getSyncableState: () => {
         const s = get();
         return {
@@ -353,6 +375,7 @@ export const useFinanceStore = create<FinanceStore>()(
           budgetHistory: s.budgetHistory,
           investments: s.investments,
           creditCards: s.creditCards,
+          accounts: s.accounts,
           profile: s.profile,
         };
       },

@@ -23,6 +23,7 @@ interface TxForm {
   description: string;
   category: string;
   type: 'income' | 'expense';
+  accountId: string;
 }
 
 const emptyForm: TxForm = {
@@ -31,10 +32,11 @@ const emptyForm: TxForm = {
   description: '',
   category: 'Food & Dining',
   type: 'expense',
+  accountId: '',
 };
 
 export default function Transactions() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
+  const { transactions, accounts, addTransaction, updateTransaction, deleteTransaction } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<TxForm>(emptyForm);
@@ -68,7 +70,7 @@ export default function Transactions() {
   function openEdit(id: string) {
     const t = transactions.find(x => x.id === id);
     if (!t) return;
-    setForm({ date: t.date, amount: String(t.amount), description: t.description, category: t.category, type: t.type });
+    setForm({ date: t.date, amount: String(t.amount), description: t.description, category: t.category, type: t.type, accountId: t.accountId ?? '' });
     setEditId(id);
     setShowModal(true);
   }
@@ -81,6 +83,7 @@ export default function Transactions() {
       description: form.description,
       category: form.category,
       type: form.type,
+      accountId: form.accountId || undefined,
     };
     if (editId) {
       updateTransaction(editId, payload);
@@ -167,6 +170,7 @@ export default function Transactions() {
               <th className="text-left text-xs text-slate-500 font-medium px-5 py-3">Date</th>
               <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Description</th>
               <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Category</th>
+              <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Account</th>
               <th className="text-left text-xs text-slate-500 font-medium px-4 py-3">Type</th>
               <th className="text-right text-xs text-slate-500 font-medium px-5 py-3">Amount</th>
               <th className="text-right text-xs text-slate-500 font-medium px-4 py-3">Actions</th>
@@ -175,15 +179,27 @@ export default function Transactions() {
           <tbody className="divide-y divide-slate-800/60">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-slate-500 py-10">No transactions found</td>
+                <td colSpan={7} className="text-center text-slate-500 py-10">No transactions found</td>
               </tr>
             ) : (
-              filtered.map(t => (
+              filtered.map(t => {
+                const account = accounts.find(a => a.id === t.accountId);
+                return (
                 <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
                   <td className="px-5 py-3 text-slate-400 whitespace-nowrap">{formatDate(t.date, 'MMM d, yyyy')}</td>
                   <td className="px-4 py-3 text-white font-medium">{t.description}</td>
                   <td className="px-4 py-3">
                     <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300">{t.category}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {account ? (
+                      <span className="text-xs flex items-center gap-1.5 text-slate-300">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: account.color }} />
+                        {account.name}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-600">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`badge ${t.type === 'income' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
@@ -204,7 +220,8 @@ export default function Transactions() {
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
@@ -251,11 +268,20 @@ export default function Transactions() {
                   <input className="input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
                 </div>
               </div>
-              <div>
-                <label className="label">Category</label>
-                <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Category</label>
+                  <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Account</label>
+                  <select className="input" value={form.accountId} onChange={e => setForm(f => ({ ...f, accountId: e.target.value }))}>
+                    <option value="">No account</option>
+                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>

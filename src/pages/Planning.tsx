@@ -3,11 +3,11 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveCont
 import { Flame, Shield, Home, TrendingUp, Edit2, Check } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatCompact } from '../utils/formatters';
-import { projectNetWorth, calculateFIRE, getTotalInvestmentValue } from '../utils/calculations';
+import { projectNetWorth, calculateFIRE, getTotalInvestmentValue, getTotalAccountBalances } from '../utils/calculations';
 import MoneyInput from '../components/common/MoneyInput';
 
 export default function Planning() {
-  const { profile, investments, savingsGoals, updateProfile } = useFinanceStore();
+  const { profile, investments, savingsGoals, accounts, transactions, updateProfile } = useFinanceStore();
   const [editProfile, setEditProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({ ...profile });
 
@@ -20,7 +20,8 @@ export default function Planning() {
 
   const totalSavings = savingsGoals.reduce((s, g) => s + g.currentAmount, 0);
   const totalInvestments = getTotalInvestmentValue(investments);
-  const netWorth = totalSavings + totalInvestments;
+  const totalAccountBalances = getTotalAccountBalances(accounts, transactions);
+  const netWorth = totalSavings + totalInvestments + totalAccountBalances;
 
   const projectionData = useMemo(() => {
     return projectNetWorth(
@@ -125,7 +126,7 @@ export default function Planning() {
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">Current Net Worth</div>
           <div className="text-2xl font-bold text-white">{formatCurrency(netWorth)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">savings + investments</div>
+          <div className="text-xs text-slate-500 mt-0.5">savings + investments + accounts</div>
         </div>
         <div className="card">
           <div className="text-xs text-slate-400 mb-1">FIRE Target</div>

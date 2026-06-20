@@ -5,14 +5,14 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Wallet,
-  CreditCard, Target, ArrowUpRight, ArrowDownRight, Bell, AlertTriangle
+  CreditCard, Target, ArrowUpRight, ArrowDownRight, Bell, Landmark
 } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import {
   getLast6MonthsData, getMonthIncome, getMonthExpenses,
   getCategoryTotals, getMonthTransactions, getTotalInvestmentValue,
-  getMonthlySubscriptionTotal, calculateGoalProgress
+  getMonthlySubscriptionTotal, calculateGoalProgress, getAccountBalance, getTotalAccountBalances
 } from '../utils/calculations';
 import { format, differenceInCalendarDays, setDate, isBefore, addMonths } from 'date-fns';
 
@@ -45,9 +45,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-  const { transactions, investments, subscriptions, savingsGoals, profile, creditCards, reopenOnboarding } = useFinanceStore();
-
-  const profileIncomplete = !profile.residencyStatus || !profile.allocationTargets;
+  const { transactions, investments, subscriptions, savingsGoals, profile, creditCards, accounts } = useFinanceStore();
 
   const thisMonth = format(new Date(), 'yyyy-MM');
   const lastMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
@@ -68,6 +66,9 @@ export default function Dashboard() {
 
   const investmentValue = useMemo(() => getTotalInvestmentValue(investments), [investments]);
   const subscriptionCost = useMemo(() => getMonthlySubscriptionTotal(subscriptions), [subscriptions]);
+  const accountBalance = useMemo(() => getTotalAccountBalances(accounts, transactions), [accounts, transactions]);
+  const totalSavings = savingsGoals.reduce((s, g) => s + g.currentAmount, 0);
+  const netWorth = totalSavings + investmentValue + accountBalance;
 
   const recentTransactions = useMemo(
     () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6),
@@ -90,22 +91,8 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Setup reminder */}
-      {profileIncomplete && (
-        <div className="card !bg-amber-500/10 !border-amber-500/30 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
-            <div>
-              <div className="text-sm text-white font-medium">Finish setting up your financial profile</div>
-              <div className="text-xs text-slate-400">Add your residency status and budget split so FinanceIQ can give you accurate advice.</div>
-            </div>
-          </div>
-          <button onClick={reopenOnboarding} className="btn-secondary shrink-0 text-xs">Finish setup</button>
-        </div>
-      )}
-
       {/* Metric Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <MetricCard
           title="Monthly Income"
           value={formatCurrency(thisIncome)}
@@ -138,6 +125,14 @@ export default function Dashboard() {
           up={true}
           icon={<TrendingUp size={18} />}
           color="violet"
+        />
+        <MetricCard
+          title="Net Worth"
+          value={formatCurrency(netWorth)}
+          sub="savings + investments + accounts"
+          up={true}
+          icon={<Landmark size={18} />}
+          color="indigo"
         />
       </div>
 
@@ -252,6 +247,26 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Accounts */}
+          {accounts.length > 0 && (
+            <div className="card">
+              <h2 className="text-sm font-semibold text-white mb-3">Accounts</h2>
+              <div className="text-2xl font-bold text-white">{formatCurrency(accountBalance)}</div>
+              <div className="text-xs text-slate-400 mt-0.5">across {accounts.length} account{accounts.length === 1 ? '' : 's'}</div>
+              <div className="mt-3 space-y-1.5">
+                {accounts.slice(0, 4).map(a => (
+                  <div key={a.id} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ background: a.color }} />
+                      {a.name}
+                    </span>
+                    <span className="text-slate-300 font-medium">{formatCurrency(getAccountBalance(a, transactions))}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Credit Cards */}
           {creditCards.length > 0 && (
             <div className="card">
@@ -317,6 +332,7 @@ function MetricCard({
     rose: { bg: 'bg-rose-500/15', text: 'text-rose-400', icon: 'text-rose-400' },
     blue: { bg: 'bg-blue-500/15', text: 'text-blue-400', icon: 'text-blue-400' },
     violet: { bg: 'bg-violet-500/15', text: 'text-violet-400', icon: 'text-violet-400' },
+    indigo: { bg: 'bg-indigo-500/15', text: 'text-indigo-400', icon: 'text-indigo-400' },
   };
   const c = colorMap[color] || colorMap.emerald;
   const isPositive = invertColors ? !up : up;

@@ -17,6 +17,7 @@ export interface Transaction {
   description: string;
   type: TransactionType;
   tags?: string[];
+  accountId?: string;
 }
 
 export type SubscriptionFrequency = 'weekly' | 'monthly' | 'yearly';
@@ -48,6 +49,7 @@ export interface SavingsGoal {
   category: GoalCategory;
   color: string;
   monthlyContribution?: number;
+  accountId?: string;
 }
 
 export interface CategoryBudget {
@@ -120,6 +122,13 @@ export interface UserProfile {
   allocationTargets?: AllocationTargets;
   dateOfBirth?: string; // YYYY-MM-DD; source of truth for currentAge so it stays accurate as time passes
   retirementTargetAmount?: number;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  openingBalance: number; // balance before any transactions tagged to this account
+  color: string;
 }
 
 export interface CreditCard {

@@ -5,6 +5,7 @@ import { useFinanceStore } from './store/useFinanceStore';
 import Login from './components/Auth/Login';
 import OnboardingWizard from './components/Onboarding/OnboardingWizard';
 import Sidebar from './components/Layout/Sidebar';
+import ProfileSetupBanner from './components/Layout/ProfileSetupBanner';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Budget from './pages/Budget';
@@ -13,10 +14,12 @@ import Savings from './pages/Savings';
 import Investments from './pages/Investments';
 import Planning from './pages/Planning';
 import Insights from './pages/Insights';
+import Accounts from './pages/Accounts';
 
 const PAGES: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
   transactions: Transactions,
+  accounts: Accounts,
   budget: Budget,
   subscriptions: Subscriptions,
   savings: Savings,
@@ -108,6 +111,7 @@ export default function App() {
     <div className="flex h-screen bg-slate-950 overflow-hidden">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
+        <ProfileSetupBanner />
         <PageComponent />
       </main>
     </div>

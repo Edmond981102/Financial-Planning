@@ -1,4 +1,4 @@
-import { Transaction, Investment, Subscription, SavingsGoal, SubscriptionFrequency } from '../types';
+import { Transaction, Investment, Subscription, SavingsGoal, SubscriptionFrequency, Account, UserProfile } from '../types';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, format } from 'date-fns';
 
 export function getMonthlyAmount(amount: number, frequency: SubscriptionFrequency): number {
@@ -68,6 +68,26 @@ export function getInvestmentReturn(investments: Investment[]): number {
   const cost = getTotalInvestmentCost(investments);
   const value = getTotalInvestmentValue(investments);
   return cost > 0 ? ((value - cost) / cost) * 100 : 0;
+}
+
+export function getAccountBalance(account: Account, transactions: Transaction[]): number {
+  const delta = transactions
+    .filter(t => t.accountId === account.id)
+    .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+  return account.openingBalance + delta;
+}
+
+export function getTotalAccountBalances(accounts: Account[], transactions: Transaction[]): number {
+  return accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
+}
+
+export type ProfileCompletion = 'complete' | 'partial' | 'incomplete';
+
+export function getProfileCompletion(profile: UserProfile): ProfileCompletion {
+  const filled = [profile.residencyStatus, profile.allocationTargets].filter(Boolean).length;
+  if (filled === 2) return 'complete';
+  if (filled === 1) return 'partial';
+  return 'incomplete';
 }
 
 export function getMonthlySubscriptionTotal(subscriptions: Subscription[]): number {

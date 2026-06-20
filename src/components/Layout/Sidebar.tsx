@@ -1,14 +1,16 @@
 import {
   LayoutDashboard, ArrowLeftRight, PieChart, CreditCard,
-  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet, Settings
+  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet, Settings, Landmark
 } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { supabase } from '../../lib/supabase';
 import { getCpfBreakdown } from '../../utils/cpf';
+import { getProfileCompletion } from '../../utils/calculations';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
+  { id: 'accounts', label: 'Accounts', icon: Landmark },
   { id: 'budget', label: 'Budget', icon: PieChart },
   { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
   { id: 'savings', label: 'Savings Goals', icon: Target },
@@ -20,6 +22,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const { activeView, setActiveView, profile, reopenOnboarding } = useFinanceStore();
   const takeHomePay = getCpfBreakdown(profile).takeHomePay;
+  const completion = getProfileCompletion(profile);
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen">
@@ -51,10 +54,15 @@ export default function Sidebar() {
           </div>
           <button
             onClick={reopenOnboarding}
-            title="Edit financial profile setup"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
+            title={completion === 'complete' ? 'Edit financial profile setup' : 'Finish setting up your financial profile'}
+            className="relative p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
           >
             <Settings size={15} />
+            {completion !== 'complete' && (
+              <span className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ring-2 ring-slate-900 ${
+                completion === 'partial' ? 'bg-amber-400' : 'bg-rose-500'
+              }`} />
+            )}
           </button>
         </div>
       </div>
