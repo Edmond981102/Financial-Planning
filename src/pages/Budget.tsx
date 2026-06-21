@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, GripVertical } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
+import { getMonthExpenses, getMonthSavings, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
@@ -172,11 +172,10 @@ export default function Budget() {
     });
   }
 
-  const thisMonthIncome = getMonthIncome(transactions, currentRealMonth);
-
   // Always reflects the live budget template (not a past month's frozen snapshot),
   // since the Income Allocation widget is fixed to "This Month".
   const liveBudgetCategories = Object.keys(budgetTemplate).length > 0 ? budgetTemplate : DEFAULT_BUDGET_CATEGORIES;
+  const totalLiveBudget = Object.values(liveBudgetCategories).reduce((s, v) => s + v, 0);
 
   // Target % is derived entirely from how budget categories are tagged to buckets —
   // it's not a separate user-set goal, so there's nothing to edit here.
@@ -285,8 +284,8 @@ export default function Budget() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {visibleBuckets.map((bucket) => {
-              const targetPct = thisMonthIncome > 0 ? ((bucketBudgetTotals[bucket] || 0) / thisMonthIncome) * 100 : 0;
-              const actualPct = thisMonthIncome > 0 ? ((bucketSpentTotals[bucket] || 0) / thisMonthIncome) * 100 : 0;
+              const targetPct = totalLiveBudget > 0 ? ((bucketBudgetTotals[bucket] || 0) / totalLiveBudget) * 100 : 0;
+              const actualPct = totalLiveBudget > 0 ? ((bucketSpentTotals[bucket] || 0) / totalLiveBudget) * 100 : 0;
               const good = bucket === 'expenses' ? actualPct <= targetPct : actualPct >= targetPct;
               return (
                 <div key={bucket}>
