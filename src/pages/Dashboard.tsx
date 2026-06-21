@@ -12,7 +12,7 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import {
   getLast6MonthsData, getMonthIncome, getMonthExpenses,
   getCategoryTotals, getMonthTransactions, getTotalInvestmentValue,
-  getMonthlySubscriptionTotal, calculateGoalProgress, getAccountBalance, getTotalAccountBalances
+  getMonthlySubscriptionTotal, calculateGoalProgress, getAccountBalance, getTotalAccountBalances, getCreditCardOwed
 } from '../utils/calculations';
 import { format, differenceInCalendarDays, setDate, isBefore, addMonths } from 'date-fns';
 
@@ -273,7 +273,7 @@ export default function Dashboard() {
               <h2 className="text-sm font-semibold text-white mb-3">Credit Cards</h2>
               <div className="space-y-3">
                 {creditCards.map((c) => {
-                  const owed = Math.max(0, c.limit - c.currentBalance);
+                  const owed = getCreditCardOwed(c, transactions);
                   const usagePercent = c.limit > 0 ? Math.min(100, (owed / c.limit) * 100) : 0;
                   const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
                   const dueSoon = daysUntilDue <= 5;

@@ -1,4 +1,4 @@
-import { Transaction, Investment, Subscription, SavingsGoal, SubscriptionFrequency, Account, UserProfile } from '../types';
+import { Transaction, Investment, Subscription, SavingsGoal, SubscriptionFrequency, Account, CreditCard, UserProfile } from '../types';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, format } from 'date-fns';
 
 export function getMonthlyAmount(amount: number, frequency: SubscriptionFrequency): number {
@@ -87,6 +87,20 @@ export function getAccountBalance(account: Account, transactions: Transaction[])
 
 export function getTotalAccountBalances(accounts: Account[], transactions: Transaction[]): number {
   return accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
+}
+
+// currentBalance is the available credit at the time the card was added (mirrors
+// Account.openingBalance), so transactions tagged to the card since then move the
+// owed amount: a purchase increases it, a payment transfer from another account
+// reduces it.
+export function getCreditCardOwed(card: CreditCard, transactions: Transaction[]): number {
+  const baseline = card.limit - card.currentBalance;
+  const delta = transactions.reduce((sum, t) => {
+    if (t.accountId === card.id) return sum + (t.type === 'income' ? -t.amount : t.amount);
+    if (t.type === 'transfer' && t.toAccountId === card.id) return sum - t.amount;
+    return sum;
+  }, 0);
+  return Math.max(0, baseline + delta);
 }
 
 // Older saved profiles stored allocation targets as { savingsPct, expensesPct, investmentsPct };
