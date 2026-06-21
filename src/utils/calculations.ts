@@ -89,6 +89,21 @@ export function getTotalAccountBalances(accounts: Account[], transactions: Trans
   return accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
 }
 
+// Older saved profiles stored allocation targets as { savingsPct, expensesPct, investmentsPct };
+// newer ones key directly by bucket name (e.g. { savings, expenses, investments, giving }).
+export function normalizeAllocationTargets(targets?: Record<string, number>): Record<string, number> {
+  if (!targets) return {};
+  const map: Record<string, number> = { ...targets };
+  const legacyKeys: [string, string][] = [['savingsPct', 'savings'], ['expensesPct', 'expenses'], ['investmentsPct', 'investments']];
+  legacyKeys.forEach(([oldKey, newKey]) => {
+    if (oldKey in map) {
+      map[newKey] = map[oldKey];
+      delete map[oldKey];
+    }
+  });
+  return map;
+}
+
 export type ProfileCompletion = 'complete' | 'partial' | 'incomplete';
 
 export function getProfileCompletion(profile: UserProfile): ProfileCompletion {

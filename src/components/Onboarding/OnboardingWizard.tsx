@@ -3,7 +3,7 @@ import { Wallet, ChevronRight, ChevronLeft, Plus, Trash2, CheckCircle2 } from 'l
 import { addYears, differenceInCalendarYears, format, parseISO, startOfMonth, subYears } from 'date-fns';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { getCpfBreakdown } from '../../utils/cpf';
-import { getProfileCompletion } from '../../utils/calculations';
+import { getProfileCompletion, normalizeAllocationTargets } from '../../utils/calculations';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { ResidencyStatus, GoalCategory, UserProfile } from '../../types';
 import MoneyInput from '../common/MoneyInput';
@@ -78,9 +78,10 @@ export default function OnboardingWizard() {
     name: '', targetAmount: '', targetDate: defaultGoalTargetDate(), monthlyContribution: '',
   });
 
-  const [savingsPct, setSavingsPct] = useState(String(profile.allocationTargets?.savingsPct ?? 20));
-  const [expensesPct, setExpensesPct] = useState(String(profile.allocationTargets?.expensesPct ?? 60));
-  const [investmentsPct, setInvestmentsPct] = useState(String(profile.allocationTargets?.investmentsPct ?? 20));
+  const normalizedAllocationTargets = normalizeAllocationTargets(profile.allocationTargets);
+  const [savingsPct, setSavingsPct] = useState(String(normalizedAllocationTargets.savings ?? 20));
+  const [expensesPct, setExpensesPct] = useState(String(normalizedAllocationTargets.expenses ?? 60));
+  const [investmentsPct, setInvestmentsPct] = useState(String(normalizedAllocationTargets.investments ?? 20));
 
   const [cards, setCards] = useState<CardDraft[]>([]);
   const [cardDraft, setCardDraft] = useState<CardDraft>({
@@ -128,9 +129,10 @@ export default function OnboardingWizard() {
     }
     if (isEditMode || maxStepReached >= 3) {
       profileUpdates.allocationTargets = {
-        savingsPct: parseFloat(savingsPct) || 0,
-        expensesPct: parseFloat(expensesPct) || 0,
-        investmentsPct: parseFloat(investmentsPct) || 0,
+        ...normalizedAllocationTargets,
+        savings: parseFloat(savingsPct) || 0,
+        expenses: parseFloat(expensesPct) || 0,
+        investments: parseFloat(investmentsPct) || 0,
       };
     }
     updateProfile(profileUpdates);

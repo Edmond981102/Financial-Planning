@@ -3,23 +3,34 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, GripVertical } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
+import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions, getCategoryTotals, normalizeAllocationTargets } from '../utils/calculations';
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
 import type { AllocationBucket } from '../types';
 
-const ALLOCATION_LABELS: Record<AllocationBucket, string> = {
+const DEFAULT_BUCKETS: AllocationBucket[] = ['savings', 'expenses', 'investments'];
+const NEW_BUCKET_OPTION = '__new__';
+
+const ALLOCATION_LABELS: Record<string, string> = {
   savings: 'Savings',
   expenses: 'Expenses',
   investments: 'Investments',
 };
 
-const ALLOCATION_STYLES: Record<AllocationBucket, string> = {
+const ALLOCATION_STYLES: Record<string, string> = {
   savings: 'bg-sky-500/15 text-sky-400',
   expenses: 'bg-slate-500/15 text-slate-400',
   investments: 'bg-violet-500/15 text-violet-400',
 };
+const DEFAULT_ALLOCATION_STYLE = 'bg-amber-500/15 text-amber-400';
+
+function bucketLabel(bucket: AllocationBucket): string {
+  return ALLOCATION_LABELS[bucket] ?? bucket;
+}
+function bucketStyle(bucket: AllocationBucket): string {
+  return ALLOCATION_STYLES[bucket] ?? DEFAULT_ALLOCATION_STYLE;
+}
 
 const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
   'Housing': 1500,
@@ -39,7 +50,7 @@ const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
 export default function Budget() {
   const {
     transactions, budgetTemplate, categoryAllocations, budgetHistory, updateBudgetTemplate,
-    investments, profile,
+    investments, profile, updateProfile,
     myrToSgdRate, setMyrToSgdRate,
   } = useFinanceStore();
   const currentRealMonth = format(new Date(), 'yyyy-MM');
@@ -128,6 +139,15 @@ export default function Budget() {
     setDraftCategories(d => d.map(c => (c.id === id ? { ...c, allocation } : c)));
   }
 
+  function handleAllocationChange(id: string, value: string) {
+    if (value !== NEW_BUCKET_OPTION) {
+      setCategoryAllocation(id, value);
+      return;
+    }
+    const name = window.prompt('New allocation bucket name (e.g. "Giving"):')?.trim();
+    if (name) setCategoryAllocation(id, name);
+  }
+
   function removeCategory(id: string) {
     setDraftCategories(d => d.filter(c => c.id !== id));
   }
@@ -159,23 +179,49 @@ export default function Budget() {
     return sum + (inv.autoInvest.frequency === 'weekly' ? inv.autoInvest.amountUsd * 52 / 12 : inv.autoInvest.amountUsd);
   }, 0);
 
-  // Route each expense/saving transaction into its category's Income Allocation bucket,
-  // falling back to the transaction type's default bucket when the category has no explicit mapping.
-  const bucketTotals = useMemo(() => {
-    const totals: Record<AllocationBucket, number> = { savings: 0, expenses: 0, investments: 0 };
-    getMonthTransactions(transactions, currentRealMonth).forEach((t) => {
-      if (t.type !== 'expense' && t.type !== 'saving') return;
-      const bucket = categoryAllocations[t.category] ?? (t.type === 'saving' ? 'savings' : 'expenses');
-      totals[bucket] += t.amount;
+  // Always reflects the live budget template (not a past month's frozen snapshot),
+  // since the Income Allocation widget is fixed to "This Month".
+  const liveBudgetCategories = Object.keys(budgetTemplate).length > 0 ? budgetTemplate : DEFAULT_BUDGET_CATEGORIES;
+
+  const normalizedTargets = normalizeAllocationTargets(profile.allocationTargets);
+  const targets: Record<string, number> = Object.keys(normalizedTargets).length > 0
+    ? normalizedTargets
+    : { savings: 20, expenses: 60, investments: 20 };
+
+  // Bucket "actual" is how much of your planned budget is tagged to each bucket — not
+  // money already spent — so the widget reflects your plan even before transactions post.
+  const { bucketBudgetTotals, categoryCountByBucket } = useMemo(() => {
+    const budgetTotals: Record<string, number> = {};
+    const counts: Record<string, number> = {};
+    Object.entries(liveBudgetCategories).forEach(([cat, amount]) => {
+      const bucket = categoryAllocations[cat] ?? 'expenses';
+      budgetTotals[bucket] = (budgetTotals[bucket] || 0) + amount;
+      counts[bucket] = (counts[bucket] || 0) + 1;
     });
-    return totals;
-  }, [transactions, currentRealMonth, categoryAllocations]);
+    return { bucketBudgetTotals: budgetTotals, categoryCountByBucket: counts };
+  }, [liveBudgetCategories, categoryAllocations]);
 
-  const actualExpensesPct = thisMonthIncome > 0 ? (bucketTotals.expenses / thisMonthIncome) * 100 : 0;
-  const actualInvestmentsPct = thisMonthIncome > 0 ? ((bucketTotals.investments + monthlyAutoInvest) / thisMonthIncome) * 100 : 0;
-  const actualSavingsPct = thisMonthIncome > 0 ? (bucketTotals.savings / thisMonthIncome) * 100 : 0;
+  const knownBuckets = useMemo(() => {
+    const set = new Set<string>(DEFAULT_BUCKETS);
+    Object.values(categoryAllocations).forEach(b => set.add(b));
+    Object.keys(targets).forEach(b => set.add(b));
+    draftCategories.forEach(d => set.add(d.allocation));
+    return Array.from(set);
+  }, [categoryAllocations, targets, draftCategories]);
 
-  const targets = profile.allocationTargets ?? { savingsPct: 20, expensesPct: 60, investmentsPct: 20 };
+  // A bucket only appears once something is actually allocated to it — tag a category
+  // (or set up auto-invest) and it shows up; untag everything and it disappears again.
+  const visibleBuckets = knownBuckets.filter((b) => (categoryCountByBucket[b] || 0) > 0 || (b === 'investments' && monthlyAutoInvest > 0));
+
+  function bucketActualAmount(bucket: AllocationBucket): number {
+    const base = bucketBudgetTotals[bucket] || 0;
+    return bucket === 'investments' ? base + monthlyAutoInvest : base;
+  }
+
+  function updateAllocationTarget(bucket: AllocationBucket, raw: string) {
+    const val = Math.max(0, Math.min(100, parseFloat(raw) || 0));
+    updateProfile({ allocationTargets: { ...targets, [bucket]: val } });
+  }
 
   const lastThreeMonths = Array.from({ length: 4 }, (_, i) => {
     const d = subMonths(new Date(), i);
@@ -242,27 +288,44 @@ export default function Budget() {
       <div className="card">
         <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold text-white">Income Allocation — This Month</h2>
-          <span className="text-xs text-slate-500">Target set during profile setup</span>
+          <span className="text-xs text-slate-500">Based on your budgeted amounts — tap a target % to edit</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { label: 'Savings', target: targets.savingsPct, actual: actualSavingsPct, good: actualSavingsPct >= targets.savingsPct },
-            { label: 'Expenses', target: targets.expensesPct, actual: actualExpensesPct, good: actualExpensesPct <= targets.expensesPct },
-            { label: 'Investments', target: targets.investmentsPct, actual: actualInvestmentsPct, good: actualInvestmentsPct >= targets.investmentsPct },
-          ].map((row) => (
-            <div key={row.label}>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-slate-400">{row.label}</span>
-                <span className={row.good ? 'text-emerald-400' : 'text-amber-400'}>
-                  {formatPercent(row.actual, 0)} <span className="text-slate-500">/ {formatPercent(row.target, 0)} target</span>
-                </span>
-              </div>
-              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, row.actual)}%`, background: row.good ? '#10b981' : '#f59e0b' }} />
-              </div>
-            </div>
-          ))}
-        </div>
+        {visibleBuckets.length === 0 ? (
+          <p className="text-sm text-slate-500">Tag a budget category to a bucket below to see your allocation here.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {visibleBuckets.map((bucket) => {
+              const target = targets[bucket] ?? 0;
+              const actualAmount = bucketActualAmount(bucket);
+              const actualPct = thisMonthIncome > 0 ? (actualAmount / thisMonthIncome) * 100 : 0;
+              const good = bucket === 'expenses' ? actualPct <= target : actualPct >= target;
+              return (
+                <div key={bucket}>
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="text-slate-400">{bucketLabel(bucket)}</span>
+                    <span className={good ? 'text-emerald-400' : 'text-amber-400'}>
+                      {formatPercent(actualPct, 0)}{' '}
+                      <span className="text-slate-500">
+                        /{' '}
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={target}
+                          onChange={(e) => updateAllocationTarget(bucket, e.target.value)}
+                          className="w-9 bg-transparent text-slate-400 border-b border-dashed border-slate-600 focus:border-emerald-400 outline-none text-right"
+                        />% target
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, actualPct)}%`, background: good ? '#10b981' : '#f59e0b' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Budget vs Actual Chart */}
@@ -349,13 +412,14 @@ export default function Budget() {
                           convertedAmount={draft.currency === 'MYR' ? (parseFloat(draft.amount) || 0) * myrToSgdRate : undefined}
                         />
                         <select
-                          className={`badge border-0 cursor-pointer ${ALLOCATION_STYLES[draft.allocation]}`}
+                          className={`badge border-0 cursor-pointer ${bucketStyle(draft.allocation)}`}
                           value={draft.allocation}
-                          onChange={e => setCategoryAllocation(draft.id, e.target.value as AllocationBucket)}
+                          onChange={e => handleAllocationChange(draft.id, e.target.value)}
                         >
-                          {(Object.keys(ALLOCATION_LABELS) as AllocationBucket[]).map((bucket) => (
-                            <option key={bucket} value={bucket}>{ALLOCATION_LABELS[bucket]}</option>
+                          {knownBuckets.map((bucket) => (
+                            <option key={bucket} value={bucket}>{bucketLabel(bucket)}</option>
                           ))}
+                          <option value={NEW_BUCKET_OPTION}>+ New bucket…</option>
                         </select>
                         <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
                           {formatCurrency(actual)} spent
@@ -399,8 +463,8 @@ export default function Budget() {
                           <CheckCircle size={13} className="text-emerald-400" />
                         )}
                         <span className="text-slate-300">{category}</span>
-                        <span className={`badge ${ALLOCATION_STYLES[categoryAllocations[category] ?? 'expenses']}`}>
-                          {ALLOCATION_LABELS[categoryAllocations[category] ?? 'expenses']}
+                        <span className={`badge ${bucketStyle(categoryAllocations[category] ?? 'expenses')}`}>
+                          {bucketLabel(categoryAllocations[category] ?? 'expenses')}
                         </span>
                       </div>
                       <div className="flex items-center gap-4 flex-wrap justify-end">

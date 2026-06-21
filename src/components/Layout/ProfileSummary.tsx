@@ -1,12 +1,19 @@
 import { X, Edit2, User, ShieldCheck, PieChart } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { getCpfBreakdown } from '../../utils/cpf';
+import { normalizeAllocationTargets } from '../../utils/calculations';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 const RESIDENCY_LABELS: Record<string, string> = {
   citizen: 'Singapore Citizen',
   pr: 'Permanent Resident',
   foreigner: 'Foreigner / Other',
+};
+
+const BUCKET_LABELS: Record<string, string> = {
+  savings: 'Savings',
+  expenses: 'Expenses',
+  investments: 'Investments',
 };
 
 interface Props {
@@ -17,6 +24,8 @@ interface Props {
 export default function ProfileSummary({ onClose, onEdit }: Props) {
   const profile = useFinanceStore((s) => s.profile);
   const cpf = getCpfBreakdown(profile);
+  const allocationTargets = normalizeAllocationTargets(profile.allocationTargets);
+  const allocationEntries = Object.entries(allocationTargets);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -52,12 +61,10 @@ export default function ProfileSummary({ onClose, onEdit }: Props) {
 
           <div className="card !bg-slate-800/60 space-y-2">
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium"><PieChart size={13} /> Budget Split</div>
-            {profile.allocationTargets ? (
-              <>
-                <Row label="Savings" value={`${profile.allocationTargets.savingsPct}%`} />
-                <Row label="Expenses" value={`${profile.allocationTargets.expensesPct}%`} />
-                <Row label="Investments" value={`${profile.allocationTargets.investmentsPct}%`} />
-              </>
+            {allocationEntries.length > 0 ? (
+              allocationEntries.map(([bucket, pct]) => (
+                <Row key={bucket} label={BUCKET_LABELS[bucket] ?? bucket} value={`${pct}%`} />
+              ))
             ) : (
               <Row label="Budget split" value="Not set" />
             )}

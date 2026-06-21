@@ -58,11 +58,15 @@ export interface CategoryBudget {
   [category: string]: number;
 }
 
-export type AllocationBucket = 'savings' | 'expenses' | 'investments';
+// Free-form: 'savings' | 'expenses' | 'investments' are the built-in defaults, but
+// users can tag a category with any other bucket name they create from the Budget page.
+export type AllocationBucket = string;
 
 export interface CategoryAllocations {
   [category: string]: AllocationBucket;
 }
+
+export type AllocationTargets = Record<string, number>; // bucket name -> target % of income; keys match AllocationBucket values
 
 export interface MonthlyBudget {
   month: string; // YYYY-MM
@@ -109,12 +113,6 @@ export interface Investment {
 }
 
 export type ResidencyStatus = 'citizen' | 'pr' | 'foreigner';
-
-export interface AllocationTargets {
-  savingsPct: number;
-  expensesPct: number;
-  investmentsPct: number;
-}
 
 export interface UserProfile {
   name: string;
