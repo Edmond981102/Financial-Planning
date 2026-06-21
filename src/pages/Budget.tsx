@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, Lock, GripVertical } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
-import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions, getCategoryTotals, normalizeAllocationTargets } from '../utils/calculations';
+import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
@@ -50,7 +50,6 @@ const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
 export default function Budget() {
   const {
     transactions, budgetTemplate, categoryAllocations, budgetHistory, updateBudgetTemplate,
-    investments, profile, updateProfile,
     myrToSgdRate, setMyrToSgdRate,
   } = useFinanceStore();
   const currentRealMonth = format(new Date(), 'yyyy-MM');
@@ -174,22 +173,13 @@ export default function Budget() {
   }
 
   const thisMonthIncome = getMonthIncome(transactions, currentRealMonth);
-  const monthlyAutoInvest = investments.reduce((sum, inv) => {
-    if (!inv.autoInvest) return sum;
-    return sum + (inv.autoInvest.frequency === 'weekly' ? inv.autoInvest.amountUsd * 52 / 12 : inv.autoInvest.amountUsd);
-  }, 0);
 
   // Always reflects the live budget template (not a past month's frozen snapshot),
   // since the Income Allocation widget is fixed to "This Month".
   const liveBudgetCategories = Object.keys(budgetTemplate).length > 0 ? budgetTemplate : DEFAULT_BUDGET_CATEGORIES;
 
-  const normalizedTargets = normalizeAllocationTargets(profile.allocationTargets);
-  const targets: Record<string, number> = Object.keys(normalizedTargets).length > 0
-    ? normalizedTargets
-    : { savings: 20, expenses: 60, investments: 20 };
-
-  // Bucket "actual" is how much of your planned budget is tagged to each bucket — not
-  // money already spent — so the widget reflects your plan even before transactions post.
+  // Target % is derived entirely from how budget categories are tagged to buckets —
+  // it's not a separate user-set goal, so there's nothing to edit here.
   const { bucketBudgetTotals, categoryCountByBucket } = useMemo(() => {
     const budgetTotals: Record<string, number> = {};
     const counts: Record<string, number> = {};
@@ -201,27 +191,27 @@ export default function Budget() {
     return { bucketBudgetTotals: budgetTotals, categoryCountByBucket: counts };
   }, [liveBudgetCategories, categoryAllocations]);
 
+  // "Actual" is real spending this month, grouped by the same bucket tags.
+  const bucketSpentTotals = useMemo(() => {
+    const txns = getMonthTransactions(transactions, currentRealMonth);
+    const totals = [...getCategoryTotals(txns, 'expense'), ...getCategoryTotals(txns, 'saving')];
+    const spent: Record<string, number> = {};
+    totals.forEach(({ name, value }) => {
+      const bucket = categoryAllocations[name] ?? 'expenses';
+      spent[bucket] = (spent[bucket] || 0) + value;
+    });
+    return spent;
+  }, [transactions, currentRealMonth, categoryAllocations]);
+
   const knownBuckets = useMemo(() => {
     const set = new Set<string>(DEFAULT_BUCKETS);
     Object.values(categoryAllocations).forEach(b => set.add(b));
-    Object.keys(targets).forEach(b => set.add(b));
     draftCategories.forEach(d => set.add(d.allocation));
     return Array.from(set);
-  }, [categoryAllocations, targets, draftCategories]);
+  }, [categoryAllocations, draftCategories]);
 
-  // A bucket only appears once something is actually allocated to it — tag a category
-  // (or set up auto-invest) and it shows up; untag everything and it disappears again.
-  const visibleBuckets = knownBuckets.filter((b) => (categoryCountByBucket[b] || 0) > 0 || (b === 'investments' && monthlyAutoInvest > 0));
-
-  function bucketActualAmount(bucket: AllocationBucket): number {
-    const base = bucketBudgetTotals[bucket] || 0;
-    return bucket === 'investments' ? base + monthlyAutoInvest : base;
-  }
-
-  function updateAllocationTarget(bucket: AllocationBucket, raw: string) {
-    const val = Math.max(0, Math.min(100, parseFloat(raw) || 0));
-    updateProfile({ allocationTargets: { ...targets, [bucket]: val } });
-  }
+  // A bucket only appears once a budget category is actually tagged to it.
+  const visibleBuckets = knownBuckets.filter((b) => (categoryCountByBucket[b] || 0) > 0);
 
   const lastThreeMonths = Array.from({ length: 4 }, (_, i) => {
     const d = subMonths(new Date(), i);
@@ -288,34 +278,23 @@ export default function Budget() {
       <div className="card">
         <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold text-white">Income Allocation — This Month</h2>
-          <span className="text-xs text-slate-500">Based on your budgeted amounts — tap a target % to edit</span>
+          <span className="text-xs text-slate-500">Target % comes from how your budget categories are tagged below</span>
         </div>
         {visibleBuckets.length === 0 ? (
           <p className="text-sm text-slate-500">Tag a budget category to a bucket below to see your allocation here.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {visibleBuckets.map((bucket) => {
-              const target = targets[bucket] ?? 0;
-              const actualAmount = bucketActualAmount(bucket);
-              const actualPct = thisMonthIncome > 0 ? (actualAmount / thisMonthIncome) * 100 : 0;
-              const good = bucket === 'expenses' ? actualPct <= target : actualPct >= target;
+              const targetPct = thisMonthIncome > 0 ? ((bucketBudgetTotals[bucket] || 0) / thisMonthIncome) * 100 : 0;
+              const actualPct = thisMonthIncome > 0 ? ((bucketSpentTotals[bucket] || 0) / thisMonthIncome) * 100 : 0;
+              const good = bucket === 'expenses' ? actualPct <= targetPct : actualPct >= targetPct;
               return (
                 <div key={bucket}>
                   <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="text-slate-400">{bucketLabel(bucket)}</span>
                     <span className={good ? 'text-emerald-400' : 'text-amber-400'}>
                       {formatPercent(actualPct, 0)}{' '}
-                      <span className="text-slate-500">
-                        /{' '}
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={target}
-                          onChange={(e) => updateAllocationTarget(bucket, e.target.value)}
-                          className="w-9 bg-transparent text-slate-400 border-b border-dashed border-slate-600 focus:border-emerald-400 outline-none text-right"
-                        />% target
-                      </span>
+                      <span className="text-slate-500">/ {formatPercent(targetPct, 0)} target</span>
                     </span>
                   </div>
                   <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
