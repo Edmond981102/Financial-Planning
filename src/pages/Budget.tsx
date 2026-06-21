@@ -7,6 +7,19 @@ import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
+import type { AllocationBucket } from '../types';
+
+const ALLOCATION_LABELS: Record<AllocationBucket, string> = {
+  savings: 'Savings',
+  expenses: 'Expenses',
+  investments: 'Investments',
+};
+
+const ALLOCATION_STYLES: Record<AllocationBucket, string> = {
+  savings: 'bg-sky-500/15 text-sky-400',
+  expenses: 'bg-slate-500/15 text-slate-400',
+  investments: 'bg-violet-500/15 text-violet-400',
+};
 
 const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
   'Housing': 1500,
@@ -25,14 +38,14 @@ const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
 
 export default function Budget() {
   const {
-    transactions, budgetTemplate, budgetHistory, updateBudgetTemplate,
+    transactions, budgetTemplate, categoryAllocations, budgetHistory, updateBudgetTemplate,
     investments, profile,
     myrToSgdRate, setMyrToSgdRate,
   } = useFinanceStore();
   const currentRealMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
   const [editMode, setEditMode] = useState(false);
-  const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string; currency: 'SGD' | 'MYR' }[]>([]);
+  const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string; currency: 'SGD' | 'MYR'; allocation: AllocationBucket }[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
   const [newCatCurrency, setNewCatCurrency] = useState<'SGD' | 'MYR'>('SGD');
@@ -79,6 +92,7 @@ export default function Budget() {
         name,
         amount: String(amount),
         currency: 'SGD' as const,
+        allocation: categoryAllocations[name] ?? 'expenses',
       }))
     );
     setEditMode(true);
@@ -86,14 +100,16 @@ export default function Budget() {
 
   function saveBudget() {
     const categories: Record<string, number> = {};
-    draftCategories.forEach(({ name, amount, currency }) => {
+    const allocations: Record<string, AllocationBucket> = {};
+    draftCategories.forEach(({ name, amount, currency, allocation }) => {
       const trimmedName = name.trim();
       const val = parseFloat(amount);
       if (trimmedName && !isNaN(val) && val >= 0) {
         categories[trimmedName] = currency === 'MYR' ? val * myrToSgdRate : val;
+        allocations[trimmedName] = allocation;
       }
     });
-    updateBudgetTemplate(categories);
+    updateBudgetTemplate(categories, allocations);
     setEditMode(false);
   }
 
@@ -102,10 +118,14 @@ export default function Budget() {
     if (!name || draftCategories.some(c => c.name === name)) return;
     const rawAmount = parseFloat(newCatAmount) || 0;
     const sgdAmount = newCatCurrency === 'MYR' ? rawAmount * myrToSgdRate : rawAmount;
-    setDraftCategories(d => [...d, { id: crypto.randomUUID(), name, amount: String(sgdAmount), currency: 'SGD' }]);
+    setDraftCategories(d => [...d, { id: crypto.randomUUID(), name, amount: String(sgdAmount), currency: 'SGD', allocation: 'expenses' }]);
     setNewCatName('');
     setNewCatAmount('');
     setNewCatCurrency('SGD');
+  }
+
+  function setCategoryAllocation(id: string, allocation: AllocationBucket) {
+    setDraftCategories(d => d.map(c => (c.id === id ? { ...c, allocation } : c)));
   }
 
   function removeCategory(id: string) {
@@ -138,9 +158,22 @@ export default function Budget() {
     if (!inv.autoInvest) return sum;
     return sum + (inv.autoInvest.frequency === 'weekly' ? inv.autoInvest.amountUsd * 52 / 12 : inv.autoInvest.amountUsd);
   }, 0);
-  const actualExpensesPct = thisMonthIncome > 0 ? (getMonthExpenses(transactions, currentRealMonth) / thisMonthIncome) * 100 : 0;
-  const actualInvestmentsPct = thisMonthIncome > 0 ? (monthlyAutoInvest / thisMonthIncome) * 100 : 0;
-  const actualSavingsPct = thisMonthIncome > 0 ? (getMonthSavings(transactions, currentRealMonth) / thisMonthIncome) * 100 : 0;
+
+  // Route each expense/saving transaction into its category's Income Allocation bucket,
+  // falling back to the transaction type's default bucket when the category has no explicit mapping.
+  const bucketTotals = useMemo(() => {
+    const totals: Record<AllocationBucket, number> = { savings: 0, expenses: 0, investments: 0 };
+    getMonthTransactions(transactions, currentRealMonth).forEach((t) => {
+      if (t.type !== 'expense' && t.type !== 'saving') return;
+      const bucket = categoryAllocations[t.category] ?? (t.type === 'saving' ? 'savings' : 'expenses');
+      totals[bucket] += t.amount;
+    });
+    return totals;
+  }, [transactions, currentRealMonth, categoryAllocations]);
+
+  const actualExpensesPct = thisMonthIncome > 0 ? (bucketTotals.expenses / thisMonthIncome) * 100 : 0;
+  const actualInvestmentsPct = thisMonthIncome > 0 ? ((bucketTotals.investments + monthlyAutoInvest) / thisMonthIncome) * 100 : 0;
+  const actualSavingsPct = thisMonthIncome > 0 ? (bucketTotals.savings / thisMonthIncome) * 100 : 0;
 
   const targets = profile.allocationTargets ?? { savingsPct: 20, expensesPct: 60, investmentsPct: 20 };
 
@@ -315,6 +348,15 @@ export default function Budget() {
                           onRateChange={setMyrToSgdRate}
                           convertedAmount={draft.currency === 'MYR' ? (parseFloat(draft.amount) || 0) * myrToSgdRate : undefined}
                         />
+                        <select
+                          className={`badge border-0 cursor-pointer ${ALLOCATION_STYLES[draft.allocation]}`}
+                          value={draft.allocation}
+                          onChange={e => setCategoryAllocation(draft.id, e.target.value as AllocationBucket)}
+                        >
+                          {(Object.keys(ALLOCATION_LABELS) as AllocationBucket[]).map((bucket) => (
+                            <option key={bucket} value={bucket}>{ALLOCATION_LABELS[bucket]}</option>
+                          ))}
+                        </select>
                         <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
                           {formatCurrency(actual)} spent
                         </span>
@@ -357,6 +399,9 @@ export default function Budget() {
                           <CheckCircle size={13} className="text-emerald-400" />
                         )}
                         <span className="text-slate-300">{category}</span>
+                        <span className={`badge ${ALLOCATION_STYLES[categoryAllocations[category] ?? 'expenses']}`}>
+                          {ALLOCATION_LABELS[categoryAllocations[category] ?? 'expenses']}
+                        </span>
                       </div>
                       <div className="flex items-center gap-4 flex-wrap justify-end">
                         <span className="text-slate-500 text-xs">budget: {formatCurrency(budget)}</span>

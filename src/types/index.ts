@@ -58,6 +58,12 @@ export interface CategoryBudget {
   [category: string]: number;
 }
 
+export type AllocationBucket = 'savings' | 'expenses' | 'investments';
+
+export interface CategoryAllocations {
+  [category: string]: AllocationBucket;
+}
+
 export interface MonthlyBudget {
   month: string; // YYYY-MM
   categories: CategoryBudget;

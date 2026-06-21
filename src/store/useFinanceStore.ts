@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry } from '../types';
+import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, CategoryAllocations, AllocationBucket, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry } from '../types';
 import { addWeeks, addMonths, addYears, format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
 
@@ -135,6 +135,7 @@ interface FinanceStore {
   subscriptions: Subscription[];
   savingsGoals: SavingsGoal[];
   budgetTemplate: CategoryBudget;
+  categoryAllocations: CategoryAllocations; // maps budget category -> which Income Allocation bucket its spending counts toward
   budgetTemplateMonth: string; // YYYY-MM the template currently represents "live" (current real month last synced)
   budgetHistory: MonthlyBudget[]; // frozen snapshots for months that have already passed
   investments: Investment[];
@@ -163,7 +164,7 @@ interface FinanceStore {
   deleteSavingsGoal: (id: string) => void;
   addFundsToGoal: (id: string, amount: number) => void;
 
-  updateBudgetTemplate: (categories: CategoryBudget) => void;
+  updateBudgetTemplate: (categories: CategoryBudget, allocations?: CategoryAllocations) => void;
   checkBudgetRollover: () => void;
 
   addInvestment: (inv: Omit<Investment, 'id'>) => void;
@@ -193,6 +194,7 @@ export interface SyncableState {
   subscriptions: Subscription[];
   savingsGoals: SavingsGoal[];
   budgetTemplate: CategoryBudget;
+  categoryAllocations: CategoryAllocations;
   budgetTemplateMonth: string;
   budgetHistory: MonthlyBudget[];
   investments: Investment[];
@@ -211,6 +213,7 @@ export const useFinanceStore = create<FinanceStore>()(
       subscriptions: SAMPLE_SUBSCRIPTIONS,
       savingsGoals: SAMPLE_GOALS,
       budgetTemplate: SAMPLE_BUDGET_TEMPLATE,
+      categoryAllocations: {},
       budgetTemplateMonth: format(new Date(), 'yyyy-MM'),
       budgetHistory: [],
       investments: SAMPLE_INVESTMENTS,
@@ -371,8 +374,12 @@ export const useFinanceStore = create<FinanceStore>()(
           };
         }),
 
-      updateBudgetTemplate: (categories) =>
-        set((state) => ({ budgetTemplate: categories, activityLog: withLog(state.activityLog, 'Updated budget categories') })),
+      updateBudgetTemplate: (categories, allocations) =>
+        set((state) => ({
+          budgetTemplate: categories,
+          categoryAllocations: allocations ?? state.categoryAllocations,
+          activityLog: withLog(state.activityLog, 'Updated budget categories'),
+        })),
 
       checkBudgetRollover: () =>
         set((state) => {
@@ -497,6 +504,7 @@ export const useFinanceStore = create<FinanceStore>()(
       hydrateFromCloud: (data) => set(() => ({
         ...data,
         accounts: data.accounts ?? [],
+        categoryAllocations: data.categoryAllocations ?? {},
         myrToSgdRate: data.myrToSgdRate ?? 0.29,
         creditCardBalanceMigratedV1: data.creditCardBalanceMigratedV1 ?? false,
         activityLog: data.activityLog ?? [],
@@ -508,6 +516,7 @@ export const useFinanceStore = create<FinanceStore>()(
           subscriptions: s.subscriptions,
           savingsGoals: s.savingsGoals,
           budgetTemplate: s.budgetTemplate,
+          categoryAllocations: s.categoryAllocations,
           budgetTemplateMonth: s.budgetTemplateMonth,
           budgetHistory: s.budgetHistory,
           investments: s.investments,
