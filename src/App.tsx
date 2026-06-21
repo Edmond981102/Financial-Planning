@@ -16,6 +16,7 @@ import Investments from './pages/Investments';
 import Planning from './pages/Planning';
 import Insights from './pages/Insights';
 import Accounts from './pages/Accounts';
+import ActivityLog from './pages/ActivityLog';
 
 const PAGES: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
@@ -27,6 +28,7 @@ const PAGES: Record<string, React.ComponentType> = {
   investments: Investments,
   planning: Planning,
   insights: Insights,
+  activityLog: ActivityLog,
 };
 
 const SYNC_DEBOUNCE_MS = 1500;

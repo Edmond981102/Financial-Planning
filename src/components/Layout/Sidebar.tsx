@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, ArrowLeftRight, PieChart, CreditCard,
-  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet, Settings, Landmark
+  Target, TrendingUp, Map, Lightbulb, LogOut, Wallet, Settings, Landmark, History
 } from 'lucide-react';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { supabase } from '../../lib/supabase';
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { id: 'investments', label: 'Investments', icon: TrendingUp },
   { id: 'planning', label: 'Long-term Plan', icon: Map },
   { id: 'insights', label: 'AI Insights', icon: Lightbulb },
+  { id: 'activityLog', label: 'Activity Log', icon: History },
 ];
 
 interface Props {

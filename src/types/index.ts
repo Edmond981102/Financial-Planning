@@ -149,3 +149,9 @@ export interface NetWorthSnapshot {
   liabilities: number;
   netWorth: number;
 }
+
+export interface ActivityLogEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  message: string;
+}

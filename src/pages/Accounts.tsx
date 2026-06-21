@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, X, Check, Landmark, CreditCard as CreditCardIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, Landmark, CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import { getAccountBalance } from '../utils/calculations';
 import { Account, CreditCard } from '../types';
 import { setDate, isBefore, addMonths, differenceInCalendarDays } from 'date-fns';
@@ -58,8 +58,14 @@ export default function Accounts() {
   const [cardDraft, setCardDraft] = useState<Record<string, string>>({});
   const [showAddCard, setShowAddCard] = useState(false);
   const [newCard, setNewCard] = useState({ name: '', limit: '', currentBalance: '', statementDay: '1', dueDay: '15' });
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const totalBalance = accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
+
+  const viewingName = [...accounts, ...creditCards].find((a) => a.id === viewingId)?.name;
+  const viewingTransactions = transactions
+    .filter((t) => t.accountId === viewingId || t.toAccountId === viewingId)
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   function openAdd() {
     setForm(emptyForm);
@@ -160,9 +166,13 @@ export default function Accounts() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {accounts.map(account => {
           const balance = getAccountBalance(account, transactions);
-          const linkedCount = transactions.filter(t => t.accountId === account.id).length;
+          const linkedCount = transactions.filter(t => t.accountId === account.id || t.toAccountId === account.id).length;
           return (
-            <div key={account.id} className="card space-y-4 hover:border-slate-700 transition-colors">
+            <div
+              key={account.id}
+              onClick={() => setViewingId(account.id)}
+              className="card space-y-4 hover:border-slate-700 transition-colors cursor-pointer"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold" style={{ background: account.color }}>
@@ -173,7 +183,7 @@ export default function Accounts() {
                     <div className="text-xs text-slate-500">{linkedCount} linked transaction{linkedCount === 1 ? '' : 's'}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                   <button onClick={() => openEdit(account)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-white transition-colors">
                     <Edit2 size={14} />
                   </button>
@@ -265,7 +275,11 @@ export default function Accounts() {
             }
 
             return (
-              <div key={c.id} className="flex items-center justify-between gap-2 sm:gap-4 bg-slate-800/40 rounded-xl p-3">
+              <div
+                key={c.id}
+                onClick={() => setViewingId(c.id)}
+                className="flex items-center justify-between gap-2 sm:gap-4 bg-slate-800/40 hover:bg-slate-800/70 rounded-xl p-3 cursor-pointer transition-colors"
+              >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.color + '20' }}>
                     <CreditCardIcon size={16} style={{ color: c.color }} />
@@ -287,7 +301,7 @@ export default function Accounts() {
                     <div className="h-full rounded-full" style={{ width: `${usagePercent}%`, background: usagePercent > 80 ? '#f43f5e' : c.color }} />
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                   <button onClick={() => startEditCard(c)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-white transition-colors">
                     <Edit2 size={14} />
                   </button>
@@ -379,6 +393,48 @@ export default function Accounts() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transactions for a clicked account/card */}
+      {viewingId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setViewingId(null)}>
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white">{viewingName} — Transactions</h2>
+              <button onClick={() => setViewingId(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            {viewingTransactions.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center py-10">No transactions linked to this account yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {viewingTransactions.map(t => (
+                  <div key={t.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-800 last:border-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {t.type === 'transfer' && <ArrowLeftRight size={14} className="text-violet-400 shrink-0" />}
+                      <div className="min-w-0">
+                        <div className="text-sm text-white truncate">{t.description}</div>
+                        <div className="text-xs text-slate-500">{formatDate(t.date)} · {t.category}</div>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-sm font-semibold shrink-0 ${
+                        t.type === 'income' || (t.type === 'transfer' && t.toAccountId === viewingId)
+                          ? 'text-emerald-400'
+                          : 'text-slate-300'
+                      }`}
+                    >
+                      {t.type === 'income' || (t.type === 'transfer' && t.toAccountId === viewingId) ? '+' : '-'}
+                      {formatCurrency(t.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

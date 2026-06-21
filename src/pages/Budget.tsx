@@ -7,7 +7,6 @@ import { getMonthExpenses, getMonthIncome, getMonthSavings, getMonthTransactions
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
-import { getCpfBreakdown } from '../utils/cpf';
 
 const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
   'Housing': 1500,
@@ -63,7 +62,6 @@ export default function Budget() {
   }, [transactions, selectedMonth]);
 
   const totalBudget = Object.values(budgetCategories).reduce((s, v) => s + v, 0);
-  const takeHomePay = getCpfBreakdown(profile).takeHomePay;
   const totalActual = getMonthExpenses(transactions, selectedMonth) + getMonthSavings(transactions, selectedMonth);
   const totalRemaining = totalBudget - totalActual;
 
@@ -260,8 +258,8 @@ export default function Budget() {
         <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
           <h2 className="text-sm font-semibold text-white">Category Breakdown</h2>
           <span className="text-xs text-slate-400">
-            Total budget: <span className="text-white font-semibold">{formatCurrency(totalBudget)}</span>
-            {takeHomePay > 0 && <span className="text-slate-500"> / {formatCurrency(takeHomePay)}</span>}
+            Spent: <span className="text-white font-semibold">{formatCurrency(totalActual)}</span>
+            <span className="text-slate-500"> / {formatCurrency(totalBudget)}</span>
           </span>
         </div>
         <div className="space-y-3">
