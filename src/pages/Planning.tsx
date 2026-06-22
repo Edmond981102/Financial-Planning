@@ -20,7 +20,7 @@ export default function Planning() {
 
   // FIRE inputs
   const [fireInputs, setFireInputs] = useState({
-    annualExpenses: String(profile.monthlyIncome * 0.6 * 12),
+    annualExpenses: String(profile.retirementAnnualExpenses ?? profile.monthlyIncome * 0.6 * 12),
     annualReturn: '7',
     monthlyContribution: String(profile.monthlySavingsTarget),
     // Singapore's 20-year long-term average CPI inflation runs ~2.1%; used to discount the
@@ -328,6 +328,12 @@ export default function Planning() {
                 className="input"
                 value={fireInputs.annualExpenses}
                 onChange={raw => setFireInputs(f => ({ ...f, annualExpenses: raw }))}
+                onBlur={() => {
+                  const parsed = parseFloat(fireInputs.annualExpenses);
+                  if (!isNaN(parsed) && parsed !== profile.retirementAnnualExpenses) {
+                    updateProfile({ retirementAnnualExpenses: parsed });
+                  }
+                }}
               />
             </div>
           </div>

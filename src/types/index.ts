@@ -128,6 +128,7 @@ export interface UserProfile {
   allocationTargets?: AllocationTargets;
   dateOfBirth?: string; // YYYY-MM-DD; source of truth for currentAge so it stays accurate as time passes
   retirementTargetAmount?: number;
+  retirementAnnualExpenses?: number; // user-set override for the FIRE Calculator's "Annual Expenses (in retirement)" input
 }
 
 export interface Account {
