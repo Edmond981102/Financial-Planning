@@ -1,17 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { Flame, Shield, Home, TrendingUp, Edit2, Check } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatCompact } from '../utils/formatters';
 import {
   projectNetWorth, calculateFIRE, getTotalInvestmentValue, getTotalAccountBalances,
-  yearsToReachTarget, getAnnualizedReturn,
+  yearsToReachTarget, getAnnualizedReturn, toSgdAmount,
 } from '../utils/calculations';
 import MoneyInput from '../components/common/MoneyInput';
 import InfoTooltip from '../components/common/InfoTooltip';
 
 export default function Planning() {
-  const { profile, investments, savingsGoals, accounts, transactions, updateProfile } = useFinanceStore();
+  const {
+    profile, investments, savingsGoals, accounts, transactions, updateProfile, usdSgdRate,
+    netWorthHistory, recordNetWorthSnapshot,
+  } = useFinanceStore();
   const [editProfile, setEditProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({ ...profile });
 
@@ -26,17 +29,32 @@ export default function Planning() {
   });
 
   const totalSavings = savingsGoals.reduce((s, g) => s + g.currentAmount, 0);
-  const totalInvestments = getTotalInvestmentValue(investments);
+  const totalInvestments = getTotalInvestmentValue(investments, usdSgdRate);
   const totalAccountBalances = getTotalAccountBalances(accounts, transactions);
   const netWorth = totalSavings + totalInvestments + totalAccountBalances;
+
+  // Records one snapshot per calendar day so the chart below can show an "Actual" line —
+  // your real track record — alongside the projected nominal/real lines.
+  useEffect(() => {
+    recordNetWorthSnapshot(netWorth);
+  }, [netWorth, recordNetWorthSnapshot]);
+
+  // Latest recorded snapshot per calendar year, so years with multiple visits collapse to one point.
+  const actualByYear = useMemo(() => {
+    const map: Record<number, number> = {};
+    [...netWorthHistory].sort((a, b) => a.date.localeCompare(b.date)).forEach(({ date, value }) => {
+      map[Number(date.slice(0, 4))] = value;
+    });
+    return map;
+  }, [netWorthHistory]);
 
   // Cost-weighted CAGR across all current holdings, used as a starting suggestion (not auto-applied)
   // for the Annual Return % input below — minus a flat 2-point haircut per the user's "be safer" rule.
   const portfolioAnnualizedReturn = useMemo(() => {
-    const weightedCost = investments.reduce((sum, inv) => sum + inv.units * inv.buyPrice, 0);
+    const weightedCost = investments.reduce((sum, inv) => sum + toSgdAmount(inv.units * inv.buyPrice, inv.platform, usdSgdRate), 0);
     if (weightedCost <= 0) return 0;
-    return investments.reduce((sum, inv) => sum + getAnnualizedReturn(inv) * (inv.units * inv.buyPrice), 0) / weightedCost;
-  }, [investments]);
+    return investments.reduce((sum, inv) => sum + getAnnualizedReturn(inv) * toSgdAmount(inv.units * inv.buyPrice, inv.platform, usdSgdRate), 0) / weightedCost;
+  }, [investments, usdSgdRate]);
   const suggestedSaferReturn = Math.max(0, portfolioAnnualizedReturn - 2);
 
   const annualReturn = parseFloat(fireInputs.annualReturn) || 7;
@@ -49,8 +67,8 @@ export default function Planning() {
       annualReturn,
       30,
       inflationRate
-    ).map((d, i) => ({ ...d, age: profile.currentAge + i }));
-  }, [netWorth, fireInputs, annualReturn, inflationRate, profile.currentAge]);
+    ).map((d, i) => ({ ...d, age: profile.currentAge + i, actualValue: actualByYear[d.year] }));
+  }, [netWorth, fireInputs, annualReturn, inflationRate, profile.currentAge, actualByYear]);
 
   const fireResult = useMemo(() => {
     return calculateFIRE(
@@ -268,21 +286,29 @@ export default function Planning() {
             <Tooltip
               content={({ active, payload, label }) => {
                 if (!active || !payload || payload.length === 0) return null;
-                const point = payload[0].payload as { value: number; realValue: number; age: number };
+                const point = payload[0].payload as { value: number; realValue: number; age: number; actualValue?: number };
                 return (
                   <div className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs space-y-1">
                     <div className="text-slate-300 font-medium">{label} · age {point.age}</div>
-                    <div className="text-emerald-400">Nominal: {formatCurrency(point.value)}</div>
-                    <div className="text-amber-400">Real (today's $): {formatCurrency(point.realValue)}</div>
+                    <div className="text-emerald-400">Projected (nominal): {formatCurrency(point.value)}</div>
+                    <div className="text-amber-400">Projected (real, today's $): {formatCurrency(point.realValue)}</div>
+                    {point.actualValue != null && <div className="text-blue-400">Actual: {formatCurrency(point.actualValue)}</div>}
                   </div>
                 );
               }}
             />
-            <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'Net Worth' ? 'Nominal' : 'Real (inflation-adjusted)'} />
+            <Legend
+              wrapperStyle={{ fontSize: 11 }}
+              formatter={(v) => v === 'Net Worth' ? 'Projected (nominal)' : v === 'Real Net Worth' ? 'Projected (real)' : 'Actual'}
+            />
             <Area type="monotone" dataKey="value" name="Net Worth" stroke="#10b981" strokeWidth={2.5} fill="url(#netWorthGradient)" dot={false} />
             <Area type="monotone" dataKey="realValue" name="Real Net Worth" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 4" fill="transparent" dot={false} />
+            <Area type="monotone" dataKey="actualValue" name="Actual" stroke="#3b82f6" strokeWidth={2} fill="transparent" dot={{ r: 3, fill: '#3b82f6' }} connectNulls={false} />
           </AreaChart>
         </ResponsiveContainer>
+        <p className="text-xs text-slate-500 mt-2">
+          "Actual" tracks your real net worth once a day while this page is open — it'll fill in as a track record over time so you can see if you're ahead of or behind the projection.
+        </p>
       </div>
 
       {/* FIRE Calculator + Emergency Fund */}

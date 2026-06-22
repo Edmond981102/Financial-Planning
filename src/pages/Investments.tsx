@@ -212,7 +212,7 @@ function FlashValue({ value, format, className = '' }: { value: number; format: 
 }
 
 export default function Investments() {
-  const { investments, addInvestment, updateInvestment, deleteInvestment } = useFinanceStore();
+  const { investments, addInvestment, updateInvestment, deleteInvestment, usdSgdRate } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<InvForm>(emptyForm);
@@ -230,20 +230,9 @@ export default function Investments() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [syncTick, setSyncTick] = useState(0);
   const [stashAwayCurrency, setStashAwayCurrency] = useState<'USD' | 'SGD'>('USD');
-  const [usdSgdRate, setUsdSgdRate] = useState<number | null>(null);
 
-  // Fetch the live USD->SGD rate on page load — used to show the portfolio summary in SGD
-  // (your home currency) and to let StashAway holdings (stored in USD) display in SGD too.
-  useEffect(() => {
-    if (usdSgdRate !== null) return;
-    fetch('/api/quote?symbols=USDSGD=X')
-      .then(res => res.json())
-      .then(data => {
-        const rate = data['USDSGD=X'];
-        if (typeof rate === 'number') setUsdSgdRate(rate);
-      })
-      .catch(() => {});
-  }, [usdSgdRate]);
+  // usdSgdRate itself is fetched once app-wide in App.tsx (not here), so it's already
+  // populated before this page mounts and stays consistent with other pages' net-worth totals.
 
   function formatStashAway(usdAmount: number): string {
     if (stashAwayCurrency === 'SGD' && usdSgdRate) return formatCurrency(usdAmount * usdSgdRate, 'S$');
@@ -614,6 +603,7 @@ export default function Investments() {
               )}
             </div>
             <div className="flex items-center gap-4 text-xs">
+              <span className="text-slate-500"><FlashValue value={group.cost} format={fmt} /> invested</span>
               <span className="text-slate-500"><FlashValue value={group.value} format={fmt} /> value</span>
               <span className={`font-medium ${group.gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 <FlashValue value={group.gain} format={v => `${v >= 0 ? '+' : ''}${fmt(v)}`} />

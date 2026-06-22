@@ -68,17 +68,23 @@ export function getLast6MonthsData(transactions: Transaction[]) {
   });
 }
 
-export function getTotalInvestmentValue(investments: Investment[]): number {
-  return investments.reduce((sum, inv) => sum + inv.units * inv.currentPrice, 0);
+// StashAway holdings are priced in USD; every other platform is already SGD. Without converting,
+// totals here would silently undercount StashAway's contribution by ignoring the USD->SGD rate.
+export function toSgdAmount(amount: number, platform: Investment['platform'], usdSgdRate?: number | null): number {
+  return platform === 'StashAway' && usdSgdRate ? amount * usdSgdRate : amount;
 }
 
-export function getTotalInvestmentCost(investments: Investment[]): number {
-  return investments.reduce((sum, inv) => sum + inv.units * inv.buyPrice, 0);
+export function getTotalInvestmentValue(investments: Investment[], usdSgdRate?: number | null): number {
+  return investments.reduce((sum, inv) => sum + toSgdAmount(inv.units * inv.currentPrice, inv.platform, usdSgdRate), 0);
 }
 
-export function getInvestmentReturn(investments: Investment[]): number {
-  const cost = getTotalInvestmentCost(investments);
-  const value = getTotalInvestmentValue(investments);
+export function getTotalInvestmentCost(investments: Investment[], usdSgdRate?: number | null): number {
+  return investments.reduce((sum, inv) => sum + toSgdAmount(inv.units * inv.buyPrice, inv.platform, usdSgdRate), 0);
+}
+
+export function getInvestmentReturn(investments: Investment[], usdSgdRate?: number | null): number {
+  const cost = getTotalInvestmentCost(investments, usdSgdRate);
+  const value = getTotalInvestmentValue(investments, usdSgdRate);
   return cost > 0 ? ((value - cost) / cost) * 100 : 0;
 }
 

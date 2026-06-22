@@ -45,7 +45,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-  const { transactions, investments, subscriptions, savingsGoals, profile, creditCards, accounts } = useFinanceStore();
+  const { transactions, investments, subscriptions, savingsGoals, profile, creditCards, accounts, usdSgdRate } = useFinanceStore();
 
   const thisMonth = format(new Date(), 'yyyy-MM');
   const lastMonth = format(new Date(new Date().setMonth(new Date().getMonth() - 1)), 'yyyy-MM');
@@ -70,7 +70,7 @@ export default function Dashboard() {
     [transactions, thisMonth]
   );
 
-  const investmentValue = useMemo(() => getTotalInvestmentValue(investments), [investments]);
+  const investmentValue = useMemo(() => getTotalInvestmentValue(investments, usdSgdRate), [investments, usdSgdRate]);
   const subscriptionCost = useMemo(() => getMonthlySubscriptionTotal(subscriptions), [subscriptions]);
   const accountBalance = useMemo(() => getTotalAccountBalances(accounts, transactions), [accounts, transactions]);
   const totalSavings = savingsGoals.reduce((s, g) => s + g.currentAmount, 0);

@@ -15,7 +15,7 @@ import {
 import { format, subMonths } from 'date-fns';
 
 export default function Insights() {
-  const { transactions, subscriptions, savingsGoals, investments, profile } = useFinanceStore();
+  const { transactions, subscriptions, savingsGoals, investments, profile, usdSgdRate } = useFinanceStore();
 
   const thisMonth = format(new Date(), 'yyyy-MM');
   const lastMonth = format(subMonths(new Date(), 1), 'yyyy-MM');
@@ -50,8 +50,8 @@ export default function Insights() {
       .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
   }, [categoryThisMonth, categoryLastMonth]);
 
-  const investmentValue = getTotalInvestmentValue(investments);
-  const investmentReturn = getInvestmentReturn(investments);
+  const investmentValue = getTotalInvestmentValue(investments, usdSgdRate);
+  const investmentReturn = getInvestmentReturn(investments, usdSgdRate);
 
   const predictedData = [...monthlyData, {
     month: 'Next',

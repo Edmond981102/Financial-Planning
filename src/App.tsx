@@ -45,7 +45,20 @@ export default function App() {
   const onboardingComplete = useFinanceStore((s) => s.onboardingComplete);
   const processAutoSubscriptions = useFinanceStore((s) => s.processAutoSubscriptions);
   const checkBudgetRollover = useFinanceStore((s) => s.checkBudgetRollover);
+  const setUsdSgdRate = useFinanceStore((s) => s.setUsdSgdRate);
   const PageComponent = PAGES[activeView] || Dashboard;
+
+  // Fetched once app-wide (not per-page) so every page's net-worth total converts
+  // StashAway's USD holdings to SGD consistently, regardless of which page loads first.
+  useEffect(() => {
+    fetch('/api/quote?symbols=USDSGD=X')
+      .then(res => res.json())
+      .then(data => {
+        const rate = data['USDSGD=X'];
+        if (typeof rate === 'number') setUsdSgdRate(rate);
+      })
+      .catch(() => {});
+  }, [setUsdSgdRate]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));

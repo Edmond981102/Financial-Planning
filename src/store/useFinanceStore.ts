@@ -147,6 +147,12 @@ interface FinanceStore {
   myrToSgdRate: number; // user-editable; used to convert MYR amounts entered in Budget/Transactions into SGD, the app's base currency
   creditCardBalanceMigratedV1: boolean; // true once existing creditCards.currentBalance values have been flipped from "amount owed" to "available credit"
   activityLog: ActivityLogEntry[]; // newest-first record of create/update/delete actions, for the Activity Log page
+  // Live USD->SGD rate, fetched on the Investments page; shared (not cloud-synced) so net-worth
+  // totals elsewhere (Dashboard, Planning, Insights) convert StashAway's USD holdings consistently.
+  usdSgdRate: number | null;
+  // One snapshot per calendar day of actual net worth, recorded automatically while the Planning
+  // page is open — the historical "actual" track record plotted against the projection chart.
+  netWorthHistory: { date: string; value: number }[];
 
   setActiveView: (view: string) => void;
 
@@ -184,6 +190,8 @@ interface FinanceStore {
   completeOnboarding: () => void;
   reopenOnboarding: () => void;
   setMyrToSgdRate: (rate: number) => void;
+  setUsdSgdRate: (rate: number) => void;
+  recordNetWorthSnapshot: (value: number) => void;
 
   hydrateFromCloud: (data: SyncableState) => void;
   getSyncableState: () => SyncableState;
@@ -204,6 +212,7 @@ export interface SyncableState {
   myrToSgdRate: number;
   creditCardBalanceMigratedV1: boolean;
   activityLog: ActivityLogEntry[];
+  netWorthHistory: { date: string; value: number }[];
 }
 
 export const useFinanceStore = create<FinanceStore>()(
@@ -225,6 +234,8 @@ export const useFinanceStore = create<FinanceStore>()(
       myrToSgdRate: 0.29,
       creditCardBalanceMigratedV1: false,
       activityLog: [],
+      usdSgdRate: null,
+      netWorthHistory: [],
 
       setActiveView: (view) => set({ activeView: view }),
 
@@ -500,6 +511,13 @@ export const useFinanceStore = create<FinanceStore>()(
       completeOnboarding: () => set({ onboardingComplete: true }),
       reopenOnboarding: () => set({ onboardingComplete: false }),
       setMyrToSgdRate: (rate) => set({ myrToSgdRate: rate }),
+      setUsdSgdRate: (rate) => set({ usdSgdRate: rate }),
+      recordNetWorthSnapshot: (value) =>
+        set((state) => {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          const existing = state.netWorthHistory.filter((s) => s.date !== today);
+          return { netWorthHistory: [...existing, { date: today, value }] };
+        }),
 
       hydrateFromCloud: (data) => set(() => ({
         ...data,
@@ -508,6 +526,7 @@ export const useFinanceStore = create<FinanceStore>()(
         myrToSgdRate: data.myrToSgdRate ?? 0.29,
         creditCardBalanceMigratedV1: data.creditCardBalanceMigratedV1 ?? false,
         activityLog: data.activityLog ?? [],
+        netWorthHistory: data.netWorthHistory ?? [],
       })),
       getSyncableState: () => {
         const s = get();
@@ -526,6 +545,7 @@ export const useFinanceStore = create<FinanceStore>()(
           myrToSgdRate: s.myrToSgdRate,
           creditCardBalanceMigratedV1: s.creditCardBalanceMigratedV1,
           activityLog: s.activityLog,
+          netWorthHistory: s.netWorthHistory,
         };
       },
     }),
