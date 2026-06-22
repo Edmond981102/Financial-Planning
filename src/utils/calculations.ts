@@ -30,6 +30,12 @@ export function getMonthExpenses(transactions: Transaction[], monthStr: string):
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
+export function getDayExpenses(transactions: Transaction[], dateStr: string): number {
+  return transactions
+    .filter(t => t.type === 'expense' && t.date === dateStr)
+    .reduce((sum, t) => sum + t.amount, 0);
+}
+
 export function getMonthSavings(transactions: Transaction[], monthStr: string): number {
   return getMonthTransactions(transactions, monthStr)
     .filter(t => t.type === 'saving')

@@ -5,16 +5,16 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Wallet,
-  CreditCard, Target, ArrowUpRight, ArrowDownRight, Bell, Landmark
+  CreditCard, Target, ArrowUpRight, ArrowDownRight, Bell, Landmark, Receipt
 } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import {
-  getLast6MonthsData, getMonthIncome, getMonthExpenses,
+  getLast6MonthsData, getMonthIncome, getMonthExpenses, getDayExpenses,
   getCategoryTotals, getMonthTransactions, getTotalInvestmentValue,
   getMonthlySubscriptionTotal, calculateGoalProgress, getAccountBalance, getTotalAccountBalances, getCreditCardOwed
 } from '../utils/calculations';
-import { format, differenceInCalendarDays, setDate, isBefore, addMonths } from 'date-fns';
+import { format, differenceInCalendarDays, setDate, isBefore, addMonths, subDays } from 'date-fns';
 
 function getNextDueDate(dueDay: number): Date {
   const today = new Date();
@@ -58,6 +58,12 @@ export default function Dashboard() {
   const thisSavings = thisIncome - thisExpenses;
   const expenseChange = lastExpenses > 0 ? ((thisExpenses - lastExpenses) / lastExpenses) * 100 : 0;
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const todaySpent = useMemo(() => getDayExpenses(transactions, todayStr), [transactions, todayStr]);
+  const yesterdaySpent = useMemo(() => getDayExpenses(transactions, yesterdayStr), [transactions, yesterdayStr]);
+  const todayChange = yesterdaySpent > 0 ? ((todaySpent - yesterdaySpent) / yesterdaySpent) * 100 : 0;
+
   const monthlyData = useMemo(() => getLast6MonthsData(transactions), [transactions]);
   const categoryData = useMemo(
     () => getCategoryTotals(getMonthTransactions(transactions, thisMonth), 'expense'),
@@ -92,7 +98,16 @@ export default function Dashboard() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <MetricCard
+          title="Spent Today"
+          value={formatCurrency(todaySpent)}
+          sub={`${todayChange > 0 ? '+' : ''}${todayChange.toFixed(1)}% vs yesterday`}
+          up={todayChange <= 0}
+          icon={<Receipt size={18} />}
+          color="rose"
+          invertColors
+        />
         <MetricCard
           title="Monthly Income"
           value={formatCurrency(thisIncome)}
