@@ -7,6 +7,7 @@ import { getMonthExpenses, getMonthSavings, getMonthTransactions, getCategoryTot
 import { format, subMonths } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
+import InfoTooltip from '../components/common/InfoTooltip';
 import type { AllocationBucket } from '../types';
 
 const DEFAULT_BUCKETS: AllocationBucket[] = ['savings', 'expenses', 'investments'];
@@ -287,19 +288,27 @@ export default function Budget() {
               const targetPct = totalLiveBudget > 0 ? ((bucketBudgetTotals[bucket] || 0) / totalLiveBudget) * 100 : 0;
               const actualPct = totalLiveBudget > 0 ? ((bucketSpentTotals[bucket] || 0) / totalLiveBudget) * 100 : 0;
               const good = bucket === 'expenses' ? actualPct <= targetPct : actualPct >= targetPct;
+              const targetAmount = bucketBudgetTotals[bucket] || 0;
+              const actualAmount = bucketSpentTotals[bucket] || 0;
               return (
-                <div key={bucket}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-slate-400">{bucketLabel(bucket)}</span>
-                    <span className={good ? 'text-emerald-400' : 'text-amber-400'}>
-                      {formatPercent(actualPct, 0)}{' '}
-                      <span className="text-slate-500">/ {formatPercent(targetPct, 0)} target</span>
-                    </span>
+                <InfoTooltip key={bucket} lines={[
+                  `Target: ${formatCurrency(targetAmount)} (${formatPercent(targetPct, 0)} of ${formatCurrency(totalLiveBudget)} total budget)`,
+                  `Actual: ${formatCurrency(actualAmount)} (${formatPercent(actualPct, 0)} of total budget)`,
+                  `${actualAmount > targetAmount ? 'Over' : 'Under'} target by ${formatCurrency(Math.abs(actualAmount - targetAmount))}`,
+                ]}>
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-slate-400">{bucketLabel(bucket)}</span>
+                      <span className={good ? 'text-emerald-400' : 'text-amber-400'}>
+                        {formatPercent(actualPct, 0)}{' '}
+                        <span className="text-slate-500">/ {formatPercent(targetPct, 0)} target</span>
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, actualPct)}%`, background: good ? '#10b981' : '#f59e0b' }} />
+                    </div>
                   </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, actualPct)}%`, background: good ? '#10b981' : '#f59e0b' }} />
-                  </div>
-                </div>
+                </InfoTooltip>
               );
             })}
           </div>

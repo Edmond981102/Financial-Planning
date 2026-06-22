@@ -1,10 +1,14 @@
 import { useState, useMemo } from 'react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { Flame, Shield, Home, TrendingUp, Edit2, Check } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatCompact } from '../utils/formatters';
-import { projectNetWorth, calculateFIRE, getTotalInvestmentValue, getTotalAccountBalances } from '../utils/calculations';
+import {
+  projectNetWorth, calculateFIRE, getTotalInvestmentValue, getTotalAccountBalances,
+  yearsToReachTarget, getAnnualizedReturn,
+} from '../utils/calculations';
 import MoneyInput from '../components/common/MoneyInput';
+import InfoTooltip from '../components/common/InfoTooltip';
 
 export default function Planning() {
   const { profile, investments, savingsGoals, accounts, transactions, updateProfile } = useFinanceStore();
@@ -16,6 +20,9 @@ export default function Planning() {
     annualExpenses: String(profile.monthlyIncome * 0.6 * 12),
     annualReturn: '7',
     monthlyContribution: String(profile.monthlySavingsTarget),
+    // Singapore's 20-year long-term average CPI inflation runs ~2.1%; used to discount the
+    // projection back to today's purchasing power (the "real" line on the chart).
+    inflationRate: '2.1',
   });
 
   const totalSavings = savingsGoals.reduce((s, g) => s + g.currentAmount, 0);
@@ -23,23 +30,36 @@ export default function Planning() {
   const totalAccountBalances = getTotalAccountBalances(accounts, transactions);
   const netWorth = totalSavings + totalInvestments + totalAccountBalances;
 
+  // Cost-weighted CAGR across all current holdings, used as a starting suggestion (not auto-applied)
+  // for the Annual Return % input below — minus a flat 2-point haircut per the user's "be safer" rule.
+  const portfolioAnnualizedReturn = useMemo(() => {
+    const weightedCost = investments.reduce((sum, inv) => sum + inv.units * inv.buyPrice, 0);
+    if (weightedCost <= 0) return 0;
+    return investments.reduce((sum, inv) => sum + getAnnualizedReturn(inv) * (inv.units * inv.buyPrice), 0) / weightedCost;
+  }, [investments]);
+  const suggestedSaferReturn = Math.max(0, portfolioAnnualizedReturn - 2);
+
+  const annualReturn = parseFloat(fireInputs.annualReturn) || 7;
+  const inflationRate = parseFloat(fireInputs.inflationRate) || 0;
+
   const projectionData = useMemo(() => {
     return projectNetWorth(
       netWorth,
       parseFloat(fireInputs.monthlyContribution) || 0,
-      parseFloat(fireInputs.annualReturn) || 7,
-      30
-    );
-  }, [netWorth, fireInputs]);
+      annualReturn,
+      30,
+      inflationRate
+    ).map((d, i) => ({ ...d, age: profile.currentAge + i }));
+  }, [netWorth, fireInputs, annualReturn, inflationRate, profile.currentAge]);
 
   const fireResult = useMemo(() => {
     return calculateFIRE(
       netWorth,
       parseFloat(fireInputs.annualExpenses) || 0,
       parseFloat(fireInputs.monthlyContribution) || 0,
-      parseFloat(fireInputs.annualReturn) || 7
+      annualReturn
     );
-  }, [netWorth, fireInputs]);
+  }, [netWorth, fireInputs, annualReturn]);
 
   const fireYear = new Date().getFullYear() + fireResult.years;
   const fireAge = profile.currentAge + fireResult.years;
@@ -55,10 +75,17 @@ export default function Planning() {
   const retirementProjection = projectNetWorth(
     netWorth,
     profile.monthlySavingsTarget,
-    parseFloat(fireInputs.annualReturn) || 7,
+    annualReturn,
     yearsToRetirement
   );
   const projectedRetirementWealth = retirementProjection[retirementProjection.length - 1]?.value || 0;
+
+  // When will the user actually hit their manually-set retirement target (if any)?
+  const yearsToRetirementTarget = profile.retirementTargetAmount
+    ? yearsToReachTarget(netWorth, profile.monthlySavingsTarget, annualReturn, profile.retirementTargetAmount)
+    : null;
+  const retirementTargetYear = yearsToRetirementTarget != null ? new Date().getFullYear() + yearsToRetirementTarget : null;
+  const retirementTargetAge = yearsToRetirementTarget != null ? profile.currentAge + yearsToRetirementTarget : null;
 
   function saveProfile() {
     updateProfile(profileDraft);
@@ -123,30 +150,63 @@ export default function Planning() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="text-xs text-slate-400 mb-1">Current Net Worth</div>
-          <div className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(netWorth)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">savings + investments + accounts</div>
-        </div>
-        <div className="card">
-          <div className="text-xs text-slate-400 mb-1">FIRE Target</div>
-          <div className="text-xl sm:text-2xl font-bold text-amber-400">{formatCurrency(fireResult.targetAmount)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">25× annual expenses</div>
-        </div>
-        <div className="card">
-          <div className="text-xs text-slate-400 mb-1">FIRE in ~{fireResult.years} years</div>
-          <div className="text-xl sm:text-2xl font-bold text-emerald-400">{fireYear}</div>
-          <div className="text-xs text-slate-500 mt-0.5">age {fireAge}</div>
-        </div>
-        <div className="card">
-          <div className="text-xs text-slate-400 mb-1">Retirement at {profile.retirementAge}</div>
-          <div className="text-xl sm:text-2xl font-bold text-blue-400">{formatCurrency(projectedRetirementWealth)}</div>
-          <div className="text-xs text-slate-500 mt-0.5">
-            {profile.retirementTargetAmount
-              ? `${((projectedRetirementWealth / profile.retirementTargetAmount) * 100).toFixed(0)}% of ${formatCurrency(profile.retirementTargetAmount)} target`
-              : 'projected wealth'}
+        <InfoTooltip lines={[
+          `Savings goals: ${formatCurrency(totalSavings)}`,
+          `Investments: ${formatCurrency(totalInvestments)}`,
+          `Account balances: ${formatCurrency(totalAccountBalances)}`,
+          `Total = ${formatCurrency(totalSavings)} + ${formatCurrency(totalInvestments)} + ${formatCurrency(totalAccountBalances)} = ${formatCurrency(netWorth)}`,
+        ]}>
+          <div className="card">
+            <div className="text-xs text-slate-400 mb-1">Current Net Worth</div>
+            <div className="text-xl sm:text-2xl font-bold text-white">{formatCurrency(netWorth)}</div>
+            <div className="text-xs text-slate-500 mt-0.5">savings + investments + accounts</div>
           </div>
-        </div>
+        </InfoTooltip>
+        <InfoTooltip lines={[
+          `Annual expenses (retirement): ${formatCurrency(parseFloat(fireInputs.annualExpenses) || 0)}`,
+          'FIRE number = 25 × annual expenses (4% safe withdrawal rule)',
+          `= 25 × ${formatCurrency(parseFloat(fireInputs.annualExpenses) || 0)} = ${formatCurrency(fireResult.targetAmount)}`,
+        ]}>
+          <div className="card">
+            <div className="text-xs text-slate-400 mb-1">FIRE Target</div>
+            <div className="text-xl sm:text-2xl font-bold text-amber-400">{formatCurrency(fireResult.targetAmount)}</div>
+            <div className="text-xs text-slate-500 mt-0.5">25× annual expenses</div>
+          </div>
+        </InfoTooltip>
+        <InfoTooltip lines={[
+          `Starting net worth: ${formatCurrency(netWorth)}`,
+          `Monthly contribution: ${formatCurrency(parseFloat(fireInputs.monthlyContribution) || 0)}`,
+          `Annual return: ${annualReturn}%`,
+          `Target (25× expenses): ${formatCurrency(fireResult.targetAmount)}`,
+          `Net worth is compounded month-by-month until it reaches the target → ~${fireResult.years} years → ${fireYear} (age ${fireAge})`,
+        ]}>
+          <div className="card">
+            <div className="text-xs text-slate-400 mb-1">FIRE in ~{fireResult.years} years</div>
+            <div className="text-xl sm:text-2xl font-bold text-emerald-400">{fireYear}</div>
+            <div className="text-xs text-slate-500 mt-0.5">age {fireAge}</div>
+          </div>
+        </InfoTooltip>
+        <InfoTooltip lines={[
+          `Years to retirement age ${profile.retirementAge}: ${yearsToRetirement}`,
+          `Monthly savings target: ${formatCurrency(profile.monthlySavingsTarget)}`,
+          `Annual return: ${annualReturn}%`,
+          `Starting net worth ${formatCurrency(netWorth)} compounded monthly for ${yearsToRetirement} years ≈ ${formatCurrency(projectedRetirementWealth)}`,
+          ...(profile.retirementTargetAmount ? [`Target: ${formatCurrency(profile.retirementTargetAmount)}`] : []),
+          ...(retirementTargetYear != null ? [`On track to hit that target in ${retirementTargetYear} (age ${retirementTargetAge})`] : []),
+        ]}>
+          <div className="card">
+            <div className="text-xs text-slate-400 mb-1">Retirement at {profile.retirementAge}</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-400">{formatCurrency(projectedRetirementWealth)}</div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {profile.retirementTargetAmount
+                ? `${((projectedRetirementWealth / profile.retirementTargetAmount) * 100).toFixed(0)}% of ${formatCurrency(profile.retirementTargetAmount)} target`
+                : 'projected wealth'}
+            </div>
+            {retirementTargetYear != null && (
+              <div className="text-xs text-blue-400 mt-0.5">Target hit ~{retirementTargetYear} (age {retirementTargetAge})</div>
+            )}
+          </div>
+        </InfoTooltip>
       </div>
 
       {/* Net Worth Projection */}
@@ -162,6 +222,26 @@ export default function Planning() {
                 step="0.5"
                 value={fireInputs.annualReturn}
                 onChange={e => setFireInputs(f => ({ ...f, annualReturn: e.target.value }))}
+              />
+              {portfolioAnnualizedReturn !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFireInputs(f => ({ ...f, annualReturn: suggestedSaferReturn.toFixed(1) }))}
+                  className="ml-1.5 text-[11px] text-slate-400 hover:text-emerald-400 underline"
+                  title={`Your portfolio's cost-weighted annualized return is ${portfolioAnnualizedReturn.toFixed(1)}%/yr. This applies a safer -2pp haircut.`}
+                >
+                  use safer {suggestedSaferReturn.toFixed(1)}%
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mr-1.5">Inflation Rate %</label>
+              <input
+                className="input w-16 py-1 text-xs inline"
+                type="number"
+                step="0.1"
+                value={fireInputs.inflationRate}
+                onChange={e => setFireInputs(f => ({ ...f, inflationRate: e.target.value }))}
               />
             </div>
             <div>
@@ -186,10 +266,21 @@ export default function Planning() {
             <XAxis dataKey="year" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `$${formatCompact(v)}`} />
             <Tooltip
-              formatter={(v: number) => [formatCurrency(v), 'Net Worth']}
-              contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', fontSize: '12px' }}
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                const point = payload[0].payload as { value: number; realValue: number; age: number };
+                return (
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs space-y-1">
+                    <div className="text-slate-300 font-medium">{label} · age {point.age}</div>
+                    <div className="text-emerald-400">Nominal: {formatCurrency(point.value)}</div>
+                    <div className="text-amber-400">Real (today's $): {formatCurrency(point.realValue)}</div>
+                  </div>
+                );
+              }}
             />
+            <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => v === 'Net Worth' ? 'Nominal' : 'Real (inflation-adjusted)'} />
             <Area type="monotone" dataKey="value" name="Net Worth" stroke="#10b981" strokeWidth={2.5} fill="url(#netWorthGradient)" dot={false} />
+            <Area type="monotone" dataKey="realValue" name="Real Net Worth" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 4" fill="transparent" dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>

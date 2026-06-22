@@ -1,5 +1,5 @@
 import { Transaction, Investment, Subscription, SavingsGoal, SubscriptionFrequency, Account, CreditCard, UserProfile } from '../types';
-import { startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, format } from 'date-fns';
+import { startOfMonth, endOfMonth, parseISO, isWithinInterval, subMonths, format, differenceInCalendarDays } from 'date-fns';
 
 export function getMonthlyAmount(amount: number, frequency: SubscriptionFrequency): number {
   switch (frequency) {
@@ -159,13 +159,16 @@ export function projectNetWorth(
   currentNetWorth: number,
   monthlyContribution: number,
   annualReturnRate: number,
-  years: number
-): { year: number; value: number }[] {
+  years: number,
+  annualInflationRate = 0
+): { year: number; value: number; realValue: number }[] {
   const monthlyRate = annualReturnRate / 100 / 12;
   const points = [];
   let value = currentNetWorth;
   for (let y = 0; y <= years; y++) {
-    points.push({ year: new Date().getFullYear() + y, value: Math.round(value) });
+    // realValue expresses the projection in today's purchasing power, i.e. discounted by inflation.
+    const realValue = value / Math.pow(1 + annualInflationRate / 100, y);
+    points.push({ year: new Date().getFullYear() + y, value: Math.round(value), realValue: Math.round(realValue) });
     for (let m = 0; m < 12; m++) {
       value = value * (1 + monthlyRate) + monthlyContribution;
     }
@@ -188,6 +191,36 @@ export function calculateFIRE(
     months++;
   }
   return { years: Math.ceil(months / 12), targetAmount };
+}
+
+// Same forward-simulation as calculateFIRE, but against an arbitrary dollar target
+// (e.g. a manually-set retirement target) instead of the 25x-expenses FIRE number.
+export function yearsToReachTarget(
+  currentValue: number,
+  monthlyContribution: number,
+  annualReturn: number,
+  targetAmount: number
+): number | null {
+  if (targetAmount <= 0) return null;
+  if (currentValue >= targetAmount) return 0;
+  const monthlyRate = annualReturn / 100 / 12;
+  let value = currentValue;
+  let months = 0;
+  while (value < targetAmount && months < 600) {
+    value = value * (1 + monthlyRate) + monthlyContribution;
+    months++;
+  }
+  return months >= 600 ? null : Math.ceil(months / 12);
+}
+
+// Simple CAGR from purchase date to today. Annualizing a position held under a month
+// would extrapolate noise into a wild yearly figure, so those are left out by callers.
+export function getAnnualizedReturn(investment: Investment): number {
+  const days = differenceInCalendarDays(new Date(), parseISO(investment.purchaseDate));
+  if (investment.buyPrice <= 0 || days < 30) return 0;
+  const totalReturnMultiple = investment.currentPrice / investment.buyPrice;
+  if (totalReturnMultiple <= 0) return -100;
+  return (Math.pow(totalReturnMultiple, 365 / days) - 1) * 100;
 }
 
 export function predictNextMonthSpending(transactions: Transaction[]): number {

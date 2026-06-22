@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import { Plus, Trash2, Edit2, X, Check, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
+import { getAnnualizedReturn } from '../utils/calculations';
 import { Investment, InvestmentType, AutoInvestConfig, InvestmentPlatform, PurchaseRecord } from '../types';
 
 // Computes the next date an auto-invest contribution is due, after `from`.
@@ -353,7 +354,12 @@ export default function Investments() {
     const holdings = investments.filter(inv => (inv.platform || 'Other') === platform);
     const value = holdings.reduce((sum, inv) => sum + inv.units * inv.currentPrice, 0);
     const cost = holdings.reduce((sum, inv) => sum + inv.units * inv.buyPrice, 0);
-    return { platform, holdings, value, cost, gain: value - cost };
+    // Weighted by each holding's SGD cost basis so platforms mixing SGD/USD positions aren't skewed by FX.
+    const weightedCost = holdings.reduce((sum, inv) => sum + toSgd(inv.units * inv.buyPrice, inv.platform), 0);
+    const annualizedReturn = weightedCost > 0
+      ? holdings.reduce((sum, inv) => sum + getAnnualizedReturn(inv) * toSgd(inv.units * inv.buyPrice, inv.platform), 0) / weightedCost
+      : 0;
+    return { platform, holdings, value, cost, gain: value - cost, annualizedReturn };
   }).filter(g => g.holdings.length > 0);
 
   const detailInv = investments.find(inv => inv.id === detailId) || null;
@@ -612,6 +618,14 @@ export default function Investments() {
               <span className={`font-medium ${group.gain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 <FlashValue value={group.gain} format={v => `${v >= 0 ? '+' : ''}${fmt(v)}`} />
               </span>
+              {group.annualizedReturn !== 0 && (
+                <span
+                  className={`font-medium px-1.5 py-0.5 rounded-md bg-slate-800 ${group.annualizedReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+                  title="Annualized return (CAGR), weighted by cost basis across holdings held 30+ days"
+                >
+                  {group.annualizedReturn >= 0 ? '+' : ''}{group.annualizedReturn.toFixed(1)}%/yr
+                </span>
+              )}
             </div>
           </div>
           <table className="w-full text-sm">
