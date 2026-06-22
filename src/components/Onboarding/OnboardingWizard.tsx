@@ -201,7 +201,7 @@ export default function OnboardingWizard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Monthly income</label>
+                  <label className="label">Monthly income (gross, before CPF)</label>
                   <MoneyInput className="input" value={monthlyIncome} onChange={(raw) => setMonthlyIncome(raw)} />
                 </div>
                 <div>
