@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { Flame, Shield, Home, TrendingUp, Edit2, Check } from 'lucide-react';
+import { Flame, Shield, Home, TrendingUp, Edit2, Check, History } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatCompact } from '../utils/formatters';
 import {
@@ -9,11 +9,21 @@ import {
 } from '../utils/calculations';
 import MoneyInput from '../components/common/MoneyInput';
 import InfoTooltip from '../components/common/InfoTooltip';
+import type { ProfileValueHistoryEntry } from '../types';
+
+// Turns a list of "value that held until this date" records plus the current live value into a
+// human-readable timeline, oldest first, ending with the value in effect today.
+function historyTimeline(history: ProfileValueHistoryEntry[], current: number, fmt: (n: number) => string): string[] {
+  const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+  const lines = sorted.map((h) => `${fmt(h.amount)} (until ${h.date})`);
+  lines.push(`${fmt(current)} (current)`);
+  return lines;
+}
 
 export default function Planning() {
   const {
     profile, investments, savingsGoals, accounts, transactions, updateProfile, usdSgdRate,
-    netWorthHistory, recordNetWorthSnapshot,
+    netWorthHistory, recordNetWorthSnapshot, incomeHistory, expensesHistory,
   } = useFinanceStore();
   const [editProfile, setEditProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState({ ...profile });
@@ -56,6 +66,15 @@ export default function Planning() {
     return investments.reduce((sum, inv) => sum + getAnnualizedReturn(inv) * toSgdAmount(inv.units * inv.buyPrice, inv.platform, usdSgdRate), 0) / weightedCost;
   }, [investments, usdSgdRate]);
   const suggestedSaferReturn = Math.max(0, portfolioAnnualizedReturn - 2);
+
+  const incomeHistoryLines = useMemo(
+    () => historyTimeline(incomeHistory, profile.monthlyIncome, formatCurrency),
+    [incomeHistory, profile.monthlyIncome]
+  );
+  const expensesHistoryLines = useMemo(
+    () => historyTimeline(expensesHistory, parseFloat(fireInputs.annualExpenses) || 0, formatCurrency),
+    [expensesHistory, fireInputs.annualExpenses]
+  );
 
   const annualReturn = parseFloat(fireInputs.annualReturn) || 7;
   const inflationRate = parseFloat(fireInputs.inflationRate) || 0;
@@ -135,7 +154,14 @@ export default function Planning() {
           <h2 className="text-sm font-semibold text-white mb-4">Financial Profile</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="label">Monthly Income</label>
+              <label className="label flex items-center gap-1">
+                Monthly Income
+                {incomeHistory.length > 0 && (
+                  <InfoTooltip lines={incomeHistoryLines}>
+                    <History size={12} className="text-slate-500" />
+                  </InfoTooltip>
+                )}
+              </label>
               <MoneyInput className="input" value={profileDraft.monthlyIncome} onChange={raw => setProfileDraft(p => ({ ...p, monthlyIncome: Number(raw) || 0 }))} />
             </div>
             <div>
@@ -323,7 +349,14 @@ export default function Planning() {
           </div>
           <div className="space-y-3">
             <div>
-              <label className="label">Annual Expenses (in retirement)</label>
+              <label className="label flex items-center gap-1">
+                Annual Expenses (in retirement)
+                {expensesHistory.length > 0 && (
+                  <InfoTooltip lines={expensesHistoryLines}>
+                    <History size={12} className="text-slate-500" />
+                  </InfoTooltip>
+                )}
+              </label>
               <MoneyInput
                 className="input"
                 value={fireInputs.annualExpenses}

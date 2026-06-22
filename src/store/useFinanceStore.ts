@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, CategoryAllocations, AllocationBucket, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry } from '../types';
+import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, CategoryAllocations, AllocationBucket, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry, ProfileValueHistoryEntry } from '../types';
 import { addWeeks, addMonths, addYears, format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
 
@@ -153,6 +153,11 @@ interface FinanceStore {
   // One snapshot per calendar day of actual net worth, recorded automatically while the Planning
   // page is open — the historical "actual" track record plotted against the projection chart.
   netWorthHistory: { date: string; value: number }[];
+  // Previous values of profile.monthlyIncome / profile.retirementAnnualExpenses, recorded
+  // automatically whenever updateProfile changes them, so past figures stay on record even as
+  // the current/forward-looking number is updated.
+  incomeHistory: ProfileValueHistoryEntry[];
+  expensesHistory: ProfileValueHistoryEntry[];
 
   setActiveView: (view: string) => void;
 
@@ -213,6 +218,8 @@ export interface SyncableState {
   creditCardBalanceMigratedV1: boolean;
   activityLog: ActivityLogEntry[];
   netWorthHistory: { date: string; value: number }[];
+  incomeHistory: ProfileValueHistoryEntry[];
+  expensesHistory: ProfileValueHistoryEntry[];
 }
 
 export const useFinanceStore = create<FinanceStore>()(
@@ -236,6 +243,8 @@ export const useFinanceStore = create<FinanceStore>()(
       activityLog: [],
       usdSgdRate: null,
       netWorthHistory: [],
+      incomeHistory: [],
+      expensesHistory: [],
 
       setActiveView: (view) => set({ activeView: view }),
 
@@ -504,10 +513,36 @@ export const useFinanceStore = create<FinanceStore>()(
         }),
 
       updateProfile: (updates) =>
-        set((state) => ({
-          profile: { ...state.profile, ...updates },
-          activityLog: withLog(state.activityLog, 'Updated financial profile'),
-        })),
+        set((state) => {
+          const today = format(new Date(), 'yyyy-MM-dd');
+
+          // Daily granularity, like netWorthHistory: only the first change of the day pushes a
+          // record, so the entry always captures the value as it stood before today's edits.
+          let incomeHistory = state.incomeHistory;
+          if (updates.monthlyIncome !== undefined && updates.monthlyIncome !== state.profile.monthlyIncome) {
+            incomeHistory = incomeHistory.some((h) => h.date === today)
+              ? incomeHistory
+              : [...incomeHistory, { date: today, amount: state.profile.monthlyIncome }];
+          }
+
+          let expensesHistory = state.expensesHistory;
+          if (
+            updates.retirementAnnualExpenses !== undefined &&
+            updates.retirementAnnualExpenses !== state.profile.retirementAnnualExpenses &&
+            state.profile.retirementAnnualExpenses !== undefined
+          ) {
+            expensesHistory = expensesHistory.some((h) => h.date === today)
+              ? expensesHistory
+              : [...expensesHistory, { date: today, amount: state.profile.retirementAnnualExpenses }];
+          }
+
+          return {
+            profile: { ...state.profile, ...updates },
+            incomeHistory,
+            expensesHistory,
+            activityLog: withLog(state.activityLog, 'Updated financial profile'),
+          };
+        }),
       completeOnboarding: () => set({ onboardingComplete: true }),
       reopenOnboarding: () => set({ onboardingComplete: false }),
       setMyrToSgdRate: (rate) => set({ myrToSgdRate: rate }),
@@ -527,6 +562,8 @@ export const useFinanceStore = create<FinanceStore>()(
         creditCardBalanceMigratedV1: data.creditCardBalanceMigratedV1 ?? false,
         activityLog: data.activityLog ?? [],
         netWorthHistory: data.netWorthHistory ?? [],
+        incomeHistory: data.incomeHistory ?? [],
+        expensesHistory: data.expensesHistory ?? [],
       })),
       getSyncableState: () => {
         const s = get();
@@ -546,6 +583,8 @@ export const useFinanceStore = create<FinanceStore>()(
           creditCardBalanceMigratedV1: s.creditCardBalanceMigratedV1,
           activityLog: s.activityLog,
           netWorthHistory: s.netWorthHistory,
+          incomeHistory: s.incomeHistory,
+          expensesHistory: s.expensesHistory,
         };
       },
     }),

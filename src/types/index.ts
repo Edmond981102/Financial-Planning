@@ -160,3 +160,11 @@ export interface ActivityLogEntry {
   timestamp: string; // ISO datetime
   message: string;
 }
+
+// Records what a profile value (e.g. monthlyIncome, retirementAnnualExpenses) was before it last
+// changed, and the date it changed — so past calculations can still be explained accurately even
+// after the user updates the current/forward-looking number.
+export interface ProfileValueHistoryEntry {
+  date: string; // YYYY-MM-DD the value changed away from `amount`
+  amount: number; // the value that was in effect up to (and including) `date`
+}
