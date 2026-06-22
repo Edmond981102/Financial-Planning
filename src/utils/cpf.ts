@@ -49,6 +49,14 @@ export function getCpfResidencyYear(profile: UserProfile): 1 | 2 | 3 {
   return 3;
 }
 
+function getCpfRates(profile: UserProfile): { rates: Rates; residencyYear: 1 | 2 | 3 } | null {
+  if (profile.residencyStatus !== 'citizen' && profile.residencyStatus !== 'pr') return null;
+  const ageBand = getAgeBand(profile.currentAge);
+  const residencyYear = getCpfResidencyYear(profile);
+  const table = residencyYear === 1 ? PR_YEAR1_RATE : residencyYear === 2 ? PR_YEAR2_RATE : FULL_RATE;
+  return { rates: table[ageBand] ?? FULL_RATE[ageBand], residencyYear };
+}
+
 export interface CpfBreakdown {
   applicable: boolean;
   employeeRate: number;
@@ -56,28 +64,39 @@ export interface CpfBreakdown {
   employeeContribution: number;
   employerContribution: number;
   takeHomePay: number;
+  grossIncome: number; // estimated pre-CPF salary, derived by grossing takeHomePay back up
   residencyYear: 1 | 2 | 3 | null;
 }
 
+// profile.monthlyIncome is take-home pay (what actually lands in the bank each month) —
+// CPF contributions are estimated by grossing that back up to the salary CPF would have
+// been calculated on, rather than deducting CPF from it.
 export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
-  if (profile.residencyStatus !== 'citizen' && profile.residencyStatus !== 'pr') {
+  const takeHomePay = profile.monthlyIncome;
+  const cpfRates = getCpfRates(profile);
+
+  if (!cpfRates) {
     return {
       applicable: false,
       employeeRate: 0,
       employerRate: 0,
       employeeContribution: 0,
       employerContribution: 0,
-      takeHomePay: profile.monthlyIncome,
+      takeHomePay,
+      grossIncome: takeHomePay,
       residencyYear: null,
     };
   }
 
-  const ageBand = getAgeBand(profile.currentAge);
-  const residencyYear = getCpfResidencyYear(profile);
-  const table = residencyYear === 1 ? PR_YEAR1_RATE : residencyYear === 2 ? PR_YEAR2_RATE : FULL_RATE;
-  const rates = table[ageBand] ?? FULL_RATE[ageBand];
+  const { rates, residencyYear } = cpfRates;
 
-  const cpfWageBase = Math.min(profile.monthlyIncome, OW_CEILING);
+  // Below the OW ceiling, CPF is a flat % of gross, so gross = takeHome / (1 - employeeRate).
+  // Once that implied gross exceeds the ceiling, contributions cap at the ceiling instead,
+  // so gross = takeHome + ceiling * employeeRate.
+  const grossBelowCeiling = takeHomePay / (1 - rates.employee);
+  const aboveCeiling = grossBelowCeiling > OW_CEILING;
+  const grossIncome = aboveCeiling ? takeHomePay + OW_CEILING * rates.employee : grossBelowCeiling;
+  const cpfWageBase = aboveCeiling ? OW_CEILING : grossBelowCeiling;
   const employeeContribution = cpfWageBase * rates.employee;
   const employerContribution = cpfWageBase * rates.employer;
 
@@ -87,7 +106,19 @@ export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
     employerRate: rates.employer,
     employeeContribution,
     employerContribution,
-    takeHomePay: profile.monthlyIncome - employeeContribution,
+    takeHomePay,
+    grossIncome,
     residencyYear,
   };
+}
+
+// One-off migration helper: profiles created before monthlyIncome meant "take-home pay"
+// stored gross salary instead. Given that old gross figure, estimates what the equivalent
+// take-home pay would have been, so existing profiles can be converted without the user
+// having to look up and re-enter their own number.
+export function estimateNetFromGross(profile: UserProfile, grossIncome: number): number {
+  const cpfRates = getCpfRates(profile);
+  if (!cpfRates) return grossIncome;
+  const cpfWageBase = Math.min(grossIncome, OW_CEILING);
+  return grossIncome - cpfWageBase * cpfRates.rates.employee;
 }

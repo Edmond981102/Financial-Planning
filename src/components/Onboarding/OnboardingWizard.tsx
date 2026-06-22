@@ -201,7 +201,7 @@ export default function OnboardingWizard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Monthly income (gross, before CPF)</label>
+                  <label className="label">Monthly income (take-home)</label>
                   <MoneyInput className="input" value={monthlyIncome} onChange={(raw) => setMonthlyIncome(raw)} />
                 </div>
                 <div>
@@ -256,15 +256,15 @@ export default function OnboardingWizard() {
                 {cpf.applicable ? (
                   <>
                     <div className="text-xs text-slate-400 mb-2">
-                      Estimated CPF{cpf.residencyYear && cpf.residencyYear < 3 ? ` (graduated, year ${cpf.residencyYear})` : ''}
+                      Estimated CPF{cpf.residencyYear && cpf.residencyYear < 3 ? ` (graduated, year ${cpf.residencyYear})` : ''} — grossed up from your take-home pay
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-300">Employee contribution ({formatPercent(cpf.employeeRate * 100, 0)})</span>
-                      <span className="text-rose-400 font-medium">-{formatCurrency(cpf.employeeContribution)}</span>
+                      <span className="text-slate-300">Estimated gross salary</span>
+                      <span className="text-white font-medium">{formatCurrency(cpf.grossIncome)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm mt-1.5 pt-1.5 border-t border-slate-700">
-                      <span className="text-slate-300 font-medium">Estimated take-home pay</span>
-                      <span className="text-emerald-400 font-semibold">{formatCurrency(cpf.takeHomePay)}</span>
+                      <span className="text-slate-300 font-medium">Employee CPF ({formatPercent(cpf.employeeRate * 100, 0)})</span>
+                      <span className="text-rose-400 font-semibold">-{formatCurrency(cpf.employeeContribution)}</span>
                     </div>
                   </>
                 ) : (

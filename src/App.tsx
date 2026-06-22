@@ -85,6 +85,7 @@ export default function App() {
         await pushToCloud(session.user.id);
       }
       useFinanceStore.getState().migrateCreditCardBalanceSemantics();
+      useFinanceStore.getState().migrateMonthlyIncomeToNet();
     })();
     return () => { cancelled = true; };
   }, [session?.user.id]);

@@ -39,7 +39,7 @@ export default function ProfileSummary({ onClose, onEdit }: Props) {
           <div className="card !bg-slate-800/60 space-y-2">
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium"><User size={13} /> Income & Age</div>
             <Row label="Name" value={profile.name} />
-            <Row label="Monthly income (gross)" value={formatCurrency(profile.monthlyIncome)} />
+            <Row label="Monthly income (take-home)" value={formatCurrency(profile.monthlyIncome)} />
             <Row label="Date of birth" value={profile.dateOfBirth ? formatDate(profile.dateOfBirth, 'MMM d, yyyy') : '—'} />
             <Row label="Current age" value={String(profile.currentAge)} />
             <Row label="Target retirement age" value={String(profile.retirementAge)} />
@@ -53,7 +53,10 @@ export default function ProfileSummary({ onClose, onEdit }: Props) {
               <Row label="PR start date" value={profile.prStartDate ? formatDate(profile.prStartDate, 'MMM d, yyyy') : '—'} />
             )}
             {cpf.applicable ? (
-              <Row label="Estimated take-home pay" value={formatCurrency(cpf.takeHomePay)} valueClass="text-emerald-400" />
+              <>
+                <Row label="Estimated gross salary" value={formatCurrency(cpf.grossIncome)} />
+                <Row label={`Employee CPF (${(cpf.employeeRate * 100).toFixed(0)}%)`} value={formatCurrency(cpf.employeeContribution)} valueClass="text-rose-400" />
+              </>
             ) : (
               <Row label="CPF deductions" value="None" />
             )}

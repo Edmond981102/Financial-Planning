@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, CategoryAllocations, AllocationBucket, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry, ProfileValueHistoryEntry } from '../types';
 import { addWeeks, addMonths, addYears, format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
+import { estimateNetFromGross } from '../utils/cpf';
 
 const MAX_ACTIVITY_LOG_ENTRIES = 300;
 
@@ -146,6 +147,7 @@ interface FinanceStore {
   onboardingComplete: boolean;
   myrToSgdRate: number; // user-editable; used to convert MYR amounts entered in Budget/Transactions into SGD, the app's base currency
   creditCardBalanceMigratedV1: boolean; // true once existing creditCards.currentBalance values have been flipped from "amount owed" to "available credit"
+  monthlyIncomeMigratedV1: boolean; // true once profile.monthlyIncome has been converted from gross salary to take-home pay
   activityLog: ActivityLogEntry[]; // newest-first record of create/update/delete actions, for the Activity Log page
   // Live USD->SGD rate, fetched on the Investments page; shared (not cloud-synced) so net-worth
   // totals elsewhere (Dashboard, Planning, Insights) convert StashAway's USD holdings consistently.
@@ -197,6 +199,7 @@ interface FinanceStore {
   setMyrToSgdRate: (rate: number) => void;
   setUsdSgdRate: (rate: number) => void;
   recordNetWorthSnapshot: (value: number) => void;
+  migrateMonthlyIncomeToNet: () => void;
 
   hydrateFromCloud: (data: SyncableState) => void;
   getSyncableState: () => SyncableState;
@@ -216,6 +219,7 @@ export interface SyncableState {
   profile: UserProfile;
   myrToSgdRate: number;
   creditCardBalanceMigratedV1: boolean;
+  monthlyIncomeMigratedV1: boolean;
   activityLog: ActivityLogEntry[];
   netWorthHistory: { date: string; value: number }[];
   incomeHistory: ProfileValueHistoryEntry[];
@@ -240,6 +244,7 @@ export const useFinanceStore = create<FinanceStore>()(
       onboardingComplete: false,
       myrToSgdRate: 0.29,
       creditCardBalanceMigratedV1: false,
+      monthlyIncomeMigratedV1: false,
       activityLog: [],
       usdSgdRate: null,
       netWorthHistory: [],
@@ -553,6 +558,14 @@ export const useFinanceStore = create<FinanceStore>()(
           const existing = state.netWorthHistory.filter((s) => s.date !== today);
           return { netWorthHistory: [...existing, { date: today, value }] };
         }),
+      migrateMonthlyIncomeToNet: () =>
+        set((state) => {
+          if (state.monthlyIncomeMigratedV1) return {};
+          return {
+            monthlyIncomeMigratedV1: true,
+            profile: { ...state.profile, monthlyIncome: estimateNetFromGross(state.profile, state.profile.monthlyIncome) },
+          };
+        }),
 
       hydrateFromCloud: (data) => set(() => ({
         ...data,
@@ -560,6 +573,7 @@ export const useFinanceStore = create<FinanceStore>()(
         categoryAllocations: data.categoryAllocations ?? {},
         myrToSgdRate: data.myrToSgdRate ?? 0.29,
         creditCardBalanceMigratedV1: data.creditCardBalanceMigratedV1 ?? false,
+        monthlyIncomeMigratedV1: data.monthlyIncomeMigratedV1 ?? false,
         activityLog: data.activityLog ?? [],
         netWorthHistory: data.netWorthHistory ?? [],
         incomeHistory: data.incomeHistory ?? [],
@@ -581,6 +595,7 @@ export const useFinanceStore = create<FinanceStore>()(
           profile: s.profile,
           myrToSgdRate: s.myrToSgdRate,
           creditCardBalanceMigratedV1: s.creditCardBalanceMigratedV1,
+          monthlyIncomeMigratedV1: s.monthlyIncomeMigratedV1,
           activityLog: s.activityLog,
           netWorthHistory: s.netWorthHistory,
           incomeHistory: s.incomeHistory,
