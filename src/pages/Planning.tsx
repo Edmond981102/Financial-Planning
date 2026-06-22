@@ -155,7 +155,7 @@ export default function Planning() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="label flex items-center gap-1">
-                Monthly Income
+                Monthly Income (take-home)
                 {incomeHistory.length > 0 && (
                   <InfoTooltip lines={incomeHistoryLines}>
                     <History size={12} className="text-slate-500" />

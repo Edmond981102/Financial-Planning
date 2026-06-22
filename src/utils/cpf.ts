@@ -56,10 +56,16 @@ export interface CpfBreakdown {
   employeeContribution: number;
   employerContribution: number;
   takeHomePay: number;
+  grossIncome: number; // estimated pre-CPF salary, derived by grossing takeHomePay back up
   residencyYear: 1 | 2 | 3 | null;
 }
 
+// profile.monthlyIncome is take-home pay (what actually lands in the bank each month) —
+// CPF contributions are estimated by grossing that back up to the salary CPF would have
+// been calculated on, rather than deducting CPF from it.
 export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
+  const takeHomePay = profile.monthlyIncome;
+
   if (profile.residencyStatus !== 'citizen' && profile.residencyStatus !== 'pr') {
     return {
       applicable: false,
@@ -67,7 +73,8 @@ export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
       employerRate: 0,
       employeeContribution: 0,
       employerContribution: 0,
-      takeHomePay: profile.monthlyIncome,
+      takeHomePay,
+      grossIncome: takeHomePay,
       residencyYear: null,
     };
   }
@@ -77,7 +84,13 @@ export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
   const table = residencyYear === 1 ? PR_YEAR1_RATE : residencyYear === 2 ? PR_YEAR2_RATE : FULL_RATE;
   const rates = table[ageBand] ?? FULL_RATE[ageBand];
 
-  const cpfWageBase = Math.min(profile.monthlyIncome, OW_CEILING);
+  // Below the OW ceiling, CPF is a flat % of gross, so gross = takeHome / (1 - employeeRate).
+  // Once that implied gross exceeds the ceiling, contributions cap at the ceiling instead,
+  // so gross = takeHome + ceiling * employeeRate.
+  const grossBelowCeiling = takeHomePay / (1 - rates.employee);
+  const aboveCeiling = grossBelowCeiling > OW_CEILING;
+  const grossIncome = aboveCeiling ? takeHomePay + OW_CEILING * rates.employee : grossBelowCeiling;
+  const cpfWageBase = aboveCeiling ? OW_CEILING : grossBelowCeiling;
   const employeeContribution = cpfWageBase * rates.employee;
   const employerContribution = cpfWageBase * rates.employer;
 
@@ -87,7 +100,8 @@ export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
     employerRate: rates.employer,
     employeeContribution,
     employerContribution,
-    takeHomePay: profile.monthlyIncome - employeeContribution,
+    takeHomePay,
+    grossIncome,
     residencyYear,
   };
 }
