@@ -86,6 +86,7 @@ export default function App() {
       }
       useFinanceStore.getState().migrateCreditCardBalanceSemantics();
       useFinanceStore.getState().migrateMonthlyIncomeToNet();
+      useFinanceStore.getState().migrateCreditCardBalanceAsOf();
     })();
     return () => { cancelled = true; };
   }, [session?.user.id]);

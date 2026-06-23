@@ -148,6 +148,7 @@ interface FinanceStore {
   myrToSgdRate: number; // user-editable; used to convert MYR amounts entered in Budget/Transactions into SGD, the app's base currency
   creditCardBalanceMigratedV1: boolean; // true once existing creditCards.currentBalance values have been flipped from "amount owed" to "available credit"
   monthlyIncomeMigratedV1: boolean; // true once profile.monthlyIncome has been converted from gross salary to take-home pay
+  creditCardBalanceAsOfMigratedV1: boolean; // true once existing creditCards without a balanceAsOf have been backfilled with one
   activityLog: ActivityLogEntry[]; // newest-first record of create/update/delete actions, for the Activity Log page
   // Live USD->SGD rate, fetched on the Investments page; shared (not cloud-synced) so net-worth
   // totals elsewhere (Dashboard, Planning, Insights) convert StashAway's USD holdings consistently.
@@ -188,6 +189,7 @@ interface FinanceStore {
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => void;
   deleteCreditCard: (id: string) => void;
   migrateCreditCardBalanceSemantics: () => void;
+  migrateCreditCardBalanceAsOf: () => void;
 
   addAccount: (a: Omit<Account, 'id'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
@@ -220,6 +222,7 @@ export interface SyncableState {
   myrToSgdRate: number;
   creditCardBalanceMigratedV1: boolean;
   monthlyIncomeMigratedV1: boolean;
+  creditCardBalanceAsOfMigratedV1: boolean;
   activityLog: ActivityLogEntry[];
   netWorthHistory: { date: string; value: number }[];
   incomeHistory: ProfileValueHistoryEntry[];
@@ -245,6 +248,7 @@ export const useFinanceStore = create<FinanceStore>()(
       myrToSgdRate: 0.29,
       creditCardBalanceMigratedV1: false,
       monthlyIncomeMigratedV1: false,
+      creditCardBalanceAsOfMigratedV1: false,
       activityLog: [],
       usdSgdRate: null,
       netWorthHistory: [],
@@ -455,15 +459,21 @@ export const useFinanceStore = create<FinanceStore>()(
 
       addCreditCard: (c) =>
         set((state) => ({
-          creditCards: [...state.creditCards, { ...c, id: `card-${crypto.randomUUID()}` }],
+          creditCards: [...state.creditCards, { ...c, id: `card-${crypto.randomUUID()}`, balanceAsOf: format(new Date(), 'yyyy-MM-dd') }],
           activityLog: withLog(state.activityLog, `Added credit card "${c.name}" (limit ${formatCurrency(c.limit)})`),
         })),
       updateCreditCard: (id, updates) =>
         set((state) => {
           const existing = state.creditCards.find((c) => c.id === id);
+          // Editing currentBalance re-syncs it to a real-world figure, so transactions tagged to
+          // the card before today are already reflected in it — bump the cutoff so they aren't
+          // also added on top via getCreditCardOwed's delta.
+          const resolvedUpdates = updates.currentBalance !== undefined
+            ? { ...updates, balanceAsOf: format(new Date(), 'yyyy-MM-dd') }
+            : updates;
           return {
             creditCards: state.creditCards.map((c) =>
-              c.id === id ? { ...c, ...updates } : c
+              c.id === id ? { ...c, ...resolvedUpdates } : c
             ),
             activityLog: existing
               ? withLog(state.activityLog, `Edited credit card "${existing.name}"`)
@@ -486,6 +496,18 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             creditCardBalanceMigratedV1: true,
             creditCards: state.creditCards.map((c) => ({ ...c, currentBalance: Math.max(0, c.limit - c.currentBalance) })),
+          };
+        }),
+      // Backfills balanceAsOf on cards saved before that field existed, treating their
+      // currentBalance as accurate as of today — otherwise every transaction ever tagged
+      // to the card would count toward owed on top of an already-current currentBalance.
+      migrateCreditCardBalanceAsOf: () =>
+        set((state) => {
+          if (state.creditCardBalanceAsOfMigratedV1) return {};
+          const today = format(new Date(), 'yyyy-MM-dd');
+          return {
+            creditCardBalanceAsOfMigratedV1: true,
+            creditCards: state.creditCards.map((c) => (c.balanceAsOf ? c : { ...c, balanceAsOf: today })),
           };
         }),
 
@@ -574,6 +596,7 @@ export const useFinanceStore = create<FinanceStore>()(
         myrToSgdRate: data.myrToSgdRate ?? 0.29,
         creditCardBalanceMigratedV1: data.creditCardBalanceMigratedV1 ?? false,
         monthlyIncomeMigratedV1: data.monthlyIncomeMigratedV1 ?? false,
+        creditCardBalanceAsOfMigratedV1: data.creditCardBalanceAsOfMigratedV1 ?? false,
         activityLog: data.activityLog ?? [],
         netWorthHistory: data.netWorthHistory ?? [],
         incomeHistory: data.incomeHistory ?? [],
@@ -596,6 +619,7 @@ export const useFinanceStore = create<FinanceStore>()(
           myrToSgdRate: s.myrToSgdRate,
           creditCardBalanceMigratedV1: s.creditCardBalanceMigratedV1,
           monthlyIncomeMigratedV1: s.monthlyIncomeMigratedV1,
+          creditCardBalanceAsOfMigratedV1: s.creditCardBalanceAsOfMigratedV1,
           activityLog: s.activityLog,
           netWorthHistory: s.netWorthHistory,
           incomeHistory: s.incomeHistory,

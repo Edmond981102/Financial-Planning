@@ -101,16 +101,17 @@ export function getTotalAccountBalances(accounts: Account[], transactions: Trans
   return accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
 }
 
-// currentBalance is the available credit as of the most recent manual edit (mirrors
-// Account.openingBalance), so only purchases/refunds tagged directly to the card since
-// then need to move the owed amount further. Payment transfers are NOT included here —
-// applying a transfer already nudges currentBalance itself (see applyTransferToCreditCards),
-// so re-applying it here would double-count every payment.
+// currentBalance is the available credit as of card.balanceAsOf (mirrors Account.openingBalance),
+// so only purchases/refunds tagged directly to the card from that date onward need to move the
+// owed amount further — anything earlier is already baked into currentBalance, and re-adding it
+// would double-count. Payment transfers are excluded entirely: applying one already nudges
+// currentBalance directly (see applyTransferToCreditCards), so it would double-count every time.
 export function getCreditCardOwed(card: CreditCard, transactions: Transaction[]): number {
   const baseline = card.limit - card.currentBalance;
   const delta = transactions.reduce((sum, t) => {
-    if (t.accountId === card.id) return sum + (t.type === 'income' ? -t.amount : t.amount);
-    return sum;
+    if (t.accountId !== card.id) return sum;
+    if (card.balanceAsOf && t.date < card.balanceAsOf) return sum;
+    return sum + (t.type === 'income' ? -t.amount : t.amount);
   }, 0);
   return Math.max(0, baseline + delta);
 }

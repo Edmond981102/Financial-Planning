@@ -146,6 +146,10 @@ export interface CreditCard {
   statementDay: number; // 1-31, day of month the statement is generated
   dueDay: number; // 1-31, day of month payment is due
   color: string;
+  // ISO date currentBalance was last confirmed accurate (set on add/whenever currentBalance is
+  // edited). Transactions tagged to the card dated before this are already baked into
+  // currentBalance, so only ones from this date onward should add to the owed amount.
+  balanceAsOf?: string;
 }
 
 export interface NetWorthSnapshot {
