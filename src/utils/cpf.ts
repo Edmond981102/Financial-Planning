@@ -111,14 +111,3 @@ export function getCpfBreakdown(profile: UserProfile): CpfBreakdown {
     residencyYear,
   };
 }
-
-// One-off migration helper: profiles created before monthlyIncome meant "take-home pay"
-// stored gross salary instead. Given that old gross figure, estimates what the equivalent
-// take-home pay would have been, so existing profiles can be converted without the user
-// having to look up and re-enter their own number.
-export function estimateNetFromGross(profile: UserProfile, grossIncome: number): number {
-  const cpfRates = getCpfRates(profile);
-  if (!cpfRates) return grossIncome;
-  const cpfWageBase = Math.min(grossIncome, OW_CEILING);
-  return grossIncome - cpfWageBase * cpfRates.rates.employee;
-}
