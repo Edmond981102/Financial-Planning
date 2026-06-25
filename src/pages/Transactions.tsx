@@ -289,7 +289,7 @@ export default function Transactions() {
             <div className="space-y-4">
               {/* Type Toggle */}
               <div className="flex rounded-xl overflow-hidden border border-slate-700 p-1 gap-1">
-                {(['expense', 'saving', 'income', 'transfer'] as const).map(type => (
+                {(['expense', 'income', 'transfer'] as const).map(type => (
                   <button
                     key={type}
                     onClick={() => setForm(f => ({
