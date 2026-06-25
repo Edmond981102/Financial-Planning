@@ -36,15 +36,22 @@ export function getDayExpenses(transactions: Transaction[], dateStr: string): nu
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
+// Transactions can no longer be created with type 'saving' (replaced by Transfers tagged
+// with the "Savings" category), but older 'saving'-type transactions still exist in saved
+// data, so both forms count as savings.
+export function isSavingTransaction(t: Transaction): boolean {
+  return t.type === 'saving' || (t.type === 'transfer' && t.category === 'Savings');
+}
+
 export function getMonthSavings(transactions: Transaction[], monthStr: string): number {
   return getMonthTransactions(transactions, monthStr)
-    .filter(t => t.type === 'saving')
+    .filter(isSavingTransaction)
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
 export function getCategoryTotals(transactions: Transaction[], type: 'income' | 'expense' | 'saving') {
   const map: Record<string, number> = {};
-  transactions.filter(t => t.type === type).forEach(t => {
+  transactions.filter(t => type === 'saving' ? isSavingTransaction(t) : t.type === type).forEach(t => {
     map[t.category] = (map[t.category] || 0) + t.amount;
   });
   return Object.entries(map)

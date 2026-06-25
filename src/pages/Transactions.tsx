@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Search, Filter, Trash2, Edit2, X, Check } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { isSavingTransaction } from '../utils/calculations';
 import { format } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
@@ -74,7 +75,7 @@ export default function Transactions() {
 
   const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpenses = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const totalSavings = filtered.filter(t => t.type === 'saving').reduce((s, t) => s + t.amount, 0);
+  const totalSavings = filtered.filter(isSavingTransaction).reduce((s, t) => s + t.amount, 0);
 
   function openAdd() {
     const defaultExpenseCategories = Object.keys(budgetTemplate).length > 0 ? Object.keys(budgetTemplate) : EXPENSE_CATEGORIES;
