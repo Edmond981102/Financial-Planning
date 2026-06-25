@@ -15,6 +15,9 @@ const INCOME_CATEGORIES = [
   'Salary', 'Freelance', 'Investment Returns', 'Rental Income',
   'Business', 'Bonus', 'Gift', 'Other',
 ];
+const TRANSFER_CATEGORIES = [
+  'Savings', 'Investment', 'Debt Payment', 'Credit Card Payment', 'Other',
+];
 
 type FilterType = 'all' | 'income' | 'expense' | 'saving' | 'transfer';
 
@@ -119,6 +122,8 @@ export default function Transactions() {
   // it selectable here so editing the form doesn't silently change its category.
   const categories = form.type === 'income'
     ? INCOME_CATEGORIES
+    : form.type === 'transfer'
+    ? TRANSFER_CATEGORIES.includes(form.category) ? TRANSFER_CATEGORIES : [form.category, ...TRANSFER_CATEGORIES]
     : expenseCategories.includes(form.category) ? expenseCategories : [form.category, ...expenseCategories];
 
   return (
@@ -290,7 +295,7 @@ export default function Transactions() {
                     onClick={() => setForm(f => ({
                       ...f,
                       type,
-                      category: type === 'income' ? 'Salary' : type === 'transfer' ? 'Transfer' : expenseCategories[0],
+                      category: type === 'income' ? 'Salary' : type === 'transfer' ? TRANSFER_CATEGORIES[0] : expenseCategories[0],
                       toAccountId: type === 'transfer' ? f.toAccountId : '',
                     }))}
                     className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-medium capitalize transition-colors ${
@@ -323,6 +328,13 @@ export default function Transactions() {
                 </div>
               </div>
               {form.type === 'transfer' ? (
+                <>
+                <div>
+                  <label className="label">Category</label>
+                  <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label">From Account *</label>
@@ -357,6 +369,7 @@ export default function Transactions() {
                     </select>
                   </div>
                 </div>
+                </>
               ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>
