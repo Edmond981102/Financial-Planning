@@ -22,15 +22,22 @@ function advanceBillingDate(date: Date, frequency: SubscriptionFrequency): Date 
 }
 
 // Credit card currentBalance represents available credit remaining (limit minus
-// amount owed), not the amount owed itself — so paying off the card increases it.
-// It isn't derived from transactions like account balances are, so a transfer
-// paying down a card has to nudge its balance directly when applied (sign=1)
-// or reversed (sign=-1) on edit/delete.
-function applyTransferToCreditCards(creditCards: CreditCard[], t: Transaction, sign: 1 | -1): CreditCard[] {
-  if (t.type !== 'transfer' || !t.toAccountId) return creditCards;
-  return creditCards.map((c) =>
-    c.id === t.toAccountId ? { ...c, currentBalance: c.currentBalance + sign * t.amount } : c
-  );
+// amount owed), not the amount owed itself — so paying off the card increases it
+// and charging an expense to it decreases it. It isn't derived from transactions
+// like account balances are, so both cases have to nudge its balance directly
+// when applied (sign=1) or reversed (sign=-1) on edit/delete.
+function applyTransactionToCreditCards(creditCards: CreditCard[], t: Transaction, sign: 1 | -1): CreditCard[] {
+  if (t.type === 'transfer' && t.toAccountId) {
+    return creditCards.map((c) =>
+      c.id === t.toAccountId ? { ...c, currentBalance: c.currentBalance + sign * t.amount } : c
+    );
+  }
+  if (t.type === 'expense' && t.accountId) {
+    return creditCards.map((c) =>
+      c.id === t.accountId ? { ...c, currentBalance: c.currentBalance - sign * t.amount } : c
+    );
+  }
+  return creditCards;
 }
 
 const SAMPLE_TRANSACTIONS: Transaction[] = [
@@ -253,7 +260,7 @@ export const useFinanceStore = create<FinanceStore>()(
           const newTx = { ...t, id: `tx-${crypto.randomUUID()}` };
           return {
             transactions: [newTx, ...state.transactions],
-            creditCards: applyTransferToCreditCards(state.creditCards, newTx, 1),
+            creditCards: applyTransactionToCreditCards(state.creditCards, newTx, 1),
             activityLog: withLog(state.activityLog, `Added ${t.type} "${t.description}" for ${formatCurrency(t.amount)}`),
           };
         }),
@@ -262,8 +269,8 @@ export const useFinanceStore = create<FinanceStore>()(
           const existing = state.transactions.find((t) => t.id === id);
           if (!existing) return {};
           const updated = { ...existing, ...updates };
-          let creditCards = applyTransferToCreditCards(state.creditCards, existing, -1);
-          creditCards = applyTransferToCreditCards(creditCards, updated, 1);
+          let creditCards = applyTransactionToCreditCards(state.creditCards, existing, -1);
+          creditCards = applyTransactionToCreditCards(creditCards, updated, 1);
           return {
             transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
             creditCards,
@@ -275,7 +282,7 @@ export const useFinanceStore = create<FinanceStore>()(
           const existing = state.transactions.find((t) => t.id === id);
           return {
             transactions: state.transactions.filter((t) => t.id !== id),
-            creditCards: existing ? applyTransferToCreditCards(state.creditCards, existing, -1) : state.creditCards,
+            creditCards: existing ? applyTransactionToCreditCards(state.creditCards, existing, -1) : state.creditCards,
             activityLog: existing
               ? withLog(state.activityLog, `Deleted transaction "${existing.description}" (${formatCurrency(existing.amount)})`)
               : state.activityLog,
@@ -346,9 +353,15 @@ export const useFinanceStore = create<FinanceStore>()(
           const dedupedNew = newTransactions.filter((t) => !existingIds.has(t.id));
           if (dedupedNew.length === 0) return { subscriptions: updatedSubscriptions };
 
+          const creditCards = dedupedNew.reduce(
+            (cards, t) => applyTransactionToCreditCards(cards, t, 1),
+            state.creditCards
+          );
+
           return {
             subscriptions: updatedSubscriptions,
             transactions: [...dedupedNew, ...state.transactions],
+            creditCards,
           };
         }),
 
