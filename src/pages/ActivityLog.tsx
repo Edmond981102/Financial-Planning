@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { History } from 'lucide-react';
+import { History, Undo2 } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import type { ActivityLogEntry } from '../types';
@@ -12,6 +12,7 @@ function dayLabel(date: Date): string {
 
 export default function ActivityLog() {
   const activityLog = useFinanceStore((s) => s.activityLog);
+  const undoActivity = useFinanceStore((s) => s.undoActivity);
 
   const groups = useMemo(() => {
     const map = new Map<string, { label: string; entries: ActivityLogEntry[] }>();
@@ -43,8 +44,20 @@ export default function ActivityLog() {
             <div className="space-y-2.5">
               {group.entries.map((entry) => (
                 <div key={entry.id} className="flex items-start justify-between gap-3 text-sm border-b border-slate-800/60 last:border-0 pb-2.5 last:pb-0">
-                  <span className="text-slate-300">{entry.message}</span>
-                  <span className="text-slate-500 text-xs shrink-0 mt-0.5">{format(parseISO(entry.timestamp), 'h:mm a')}</span>
+                  <span className={entry.undone ? 'text-slate-600 line-through' : 'text-slate-300'}>{entry.message}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {entry.undone ? (
+                      <span className="text-xs text-slate-600">Undone</span>
+                    ) : entry.undo ? (
+                      <button
+                        onClick={() => undoActivity(entry.id)}
+                        className="flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300"
+                      >
+                        <Undo2 size={12} /> Undo
+                      </button>
+                    ) : null}
+                    <span className="text-slate-500 text-xs mt-0.5">{format(parseISO(entry.timestamp), 'h:mm a')}</span>
+                  </div>
                 </div>
               ))}
             </div>

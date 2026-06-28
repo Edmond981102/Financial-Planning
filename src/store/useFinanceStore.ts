@@ -1,15 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, CategoryAllocations, AllocationBucket, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry, ProfileValueHistoryEntry } from '../types';
+import { Transaction, Subscription, SavingsGoal, MonthlyBudget, CategoryBudget, CategoryAllocations, AllocationBucket, Investment, UserProfile, SubscriptionFrequency, CreditCard, Account, ActivityLogEntry, ActivityLogUndo, ProfileValueHistoryEntry } from '../types';
 import { addWeeks, addMonths, addYears, format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
 
 const MAX_ACTIVITY_LOG_ENTRIES = 300;
 
 // Prepends a new entry so the log stays newest-first, and caps its length so it
-// doesn't grow unbounded in localStorage/cloud sync.
-function withLog(activityLog: ActivityLogEntry[], message: string): ActivityLogEntry[] {
-  const entry: ActivityLogEntry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), message };
+// doesn't grow unbounded in localStorage/cloud sync. Passing `undo` records enough
+// of a snapshot for undoActivity() to reverse the action later.
+function withLog(activityLog: ActivityLogEntry[], message: string, undo?: ActivityLogUndo): ActivityLogEntry[] {
+  const entry: ActivityLogEntry = { id: crypto.randomUUID(), timestamp: new Date().toISOString(), message, undo };
   return [entry, ...activityLog].slice(0, MAX_ACTIVITY_LOG_ENTRIES);
 }
 
@@ -205,6 +206,8 @@ interface FinanceStore {
   setUsdSgdRate: (rate: number) => void;
   recordNetWorthSnapshot: (value: number) => void;
 
+  undoActivity: (entryId: string) => void;
+
   hydrateFromCloud: (data: SyncableState) => void;
   getSyncableState: () => SyncableState;
 }
@@ -261,7 +264,11 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             transactions: [newTx, ...state.transactions],
             creditCards: applyTransactionToCreditCards(state.creditCards, newTx, 1),
-            activityLog: withLog(state.activityLog, `Added ${t.type} "${t.description}" for ${formatCurrency(t.amount)}`),
+            activityLog: withLog(
+              state.activityLog,
+              `Added ${t.type} "${t.description}" for ${formatCurrency(t.amount)}`,
+              { entity: 'transaction', action: 'add', id: newTx.id }
+            ),
           };
         }),
       updateTransaction: (id, updates) =>
@@ -274,7 +281,11 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             transactions: state.transactions.map((t) => (t.id === id ? updated : t)),
             creditCards,
-            activityLog: withLog(state.activityLog, `Edited transaction "${updated.description}" (${formatCurrency(updated.amount)})`),
+            activityLog: withLog(
+              state.activityLog,
+              `Edited transaction "${updated.description}" (${formatCurrency(updated.amount)})`,
+              { entity: 'transaction', action: 'edit', id, before: existing }
+            ),
           };
         }),
       deleteTransaction: (id) =>
@@ -284,16 +295,27 @@ export const useFinanceStore = create<FinanceStore>()(
             transactions: state.transactions.filter((t) => t.id !== id),
             creditCards: existing ? applyTransactionToCreditCards(state.creditCards, existing, -1) : state.creditCards,
             activityLog: existing
-              ? withLog(state.activityLog, `Deleted transaction "${existing.description}" (${formatCurrency(existing.amount)})`)
+              ? withLog(
+                  state.activityLog,
+                  `Deleted transaction "${existing.description}" (${formatCurrency(existing.amount)})`,
+                  { entity: 'transaction', action: 'delete', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
 
       addSubscription: (s) =>
-        set((state) => ({
-          subscriptions: [...state.subscriptions, { ...s, id: `sub-${crypto.randomUUID()}` }],
-          activityLog: withLog(state.activityLog, `Added subscription "${s.name}" (${formatCurrency(s.amount)}/${s.frequency})`),
-        })),
+        set((state) => {
+          const newSub = { ...s, id: `sub-${crypto.randomUUID()}` };
+          return {
+            subscriptions: [...state.subscriptions, newSub],
+            activityLog: withLog(
+              state.activityLog,
+              `Added subscription "${s.name}" (${formatCurrency(s.amount)}/${s.frequency})`,
+              { entity: 'subscription', action: 'add', id: newSub.id }
+            ),
+          };
+        }),
       updateSubscription: (id, updates) =>
         set((state) => {
           const existing = state.subscriptions.find((s) => s.id === id);
@@ -302,7 +324,11 @@ export const useFinanceStore = create<FinanceStore>()(
               s.id === id ? { ...s, ...updates } : s
             ),
             activityLog: existing
-              ? withLog(state.activityLog, `Edited subscription "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Edited subscription "${existing.name}"`,
+                  { entity: 'subscription', action: 'edit', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -312,7 +338,11 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             subscriptions: state.subscriptions.filter((s) => s.id !== id),
             activityLog: existing
-              ? withLog(state.activityLog, `Deleted subscription "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Deleted subscription "${existing.name}"`,
+                  { entity: 'subscription', action: 'delete', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -366,10 +396,17 @@ export const useFinanceStore = create<FinanceStore>()(
         }),
 
       addSavingsGoal: (g) =>
-        set((state) => ({
-          savingsGoals: [...state.savingsGoals, { ...g, id: `goal-${crypto.randomUUID()}` }],
-          activityLog: withLog(state.activityLog, `Added savings goal "${g.name}" (target ${formatCurrency(g.targetAmount)})`),
-        })),
+        set((state) => {
+          const newGoal = { ...g, id: `goal-${crypto.randomUUID()}` };
+          return {
+            savingsGoals: [...state.savingsGoals, newGoal],
+            activityLog: withLog(
+              state.activityLog,
+              `Added savings goal "${g.name}" (target ${formatCurrency(g.targetAmount)})`,
+              { entity: 'savingsGoal', action: 'add', id: newGoal.id }
+            ),
+          };
+        }),
       updateSavingsGoal: (id, updates) =>
         set((state) => {
           const existing = state.savingsGoals.find((g) => g.id === id);
@@ -378,7 +415,11 @@ export const useFinanceStore = create<FinanceStore>()(
               g.id === id ? { ...g, ...updates } : g
             ),
             activityLog: existing
-              ? withLog(state.activityLog, `Edited savings goal "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Edited savings goal "${existing.name}"`,
+                  { entity: 'savingsGoal', action: 'edit', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -388,7 +429,11 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             savingsGoals: state.savingsGoals.filter((g) => g.id !== id),
             activityLog: existing
-              ? withLog(state.activityLog, `Deleted savings goal "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Deleted savings goal "${existing.name}"`,
+                  { entity: 'savingsGoal', action: 'delete', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -402,7 +447,11 @@ export const useFinanceStore = create<FinanceStore>()(
                 : g
             ),
             activityLog: existing
-              ? withLog(state.activityLog, `Added ${formatCurrency(amount)} to savings goal "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Added ${formatCurrency(amount)} to savings goal "${existing.name}"`,
+                  { entity: 'savingsGoal', action: 'edit', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -434,10 +483,17 @@ export const useFinanceStore = create<FinanceStore>()(
         }),
 
       addInvestment: (inv) =>
-        set((state) => ({
-          investments: [...state.investments, { ...inv, id: `inv-${crypto.randomUUID()}` }],
-          activityLog: withLog(state.activityLog, `Added investment "${inv.name}" (${inv.units} units)`),
-        })),
+        set((state) => {
+          const newInv = { ...inv, id: `inv-${crypto.randomUUID()}` };
+          return {
+            investments: [...state.investments, newInv],
+            activityLog: withLog(
+              state.activityLog,
+              `Added investment "${inv.name}" (${inv.units} units)`,
+              { entity: 'investment', action: 'add', id: newInv.id }
+            ),
+          };
+        }),
       updateInvestment: (id, updates) =>
         set((state) => {
           const existing = state.investments.find((inv) => inv.id === id);
@@ -446,7 +502,11 @@ export const useFinanceStore = create<FinanceStore>()(
               inv.id === id ? { ...inv, ...updates } : inv
             ),
             activityLog: existing
-              ? withLog(state.activityLog, `Edited investment "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Edited investment "${existing.name}"`,
+                  { entity: 'investment', action: 'edit', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -456,16 +516,27 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             investments: state.investments.filter((inv) => inv.id !== id),
             activityLog: existing
-              ? withLog(state.activityLog, `Deleted investment "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Deleted investment "${existing.name}"`,
+                  { entity: 'investment', action: 'delete', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
 
       addCreditCard: (c) =>
-        set((state) => ({
-          creditCards: [...state.creditCards, { ...c, id: `card-${crypto.randomUUID()}` }],
-          activityLog: withLog(state.activityLog, `Added credit card "${c.name}" (limit ${formatCurrency(c.limit)})`),
-        })),
+        set((state) => {
+          const newCard = { ...c, id: `card-${crypto.randomUUID()}` };
+          return {
+            creditCards: [...state.creditCards, newCard],
+            activityLog: withLog(
+              state.activityLog,
+              `Added credit card "${c.name}" (limit ${formatCurrency(c.limit)})`,
+              { entity: 'creditCard', action: 'add', id: newCard.id }
+            ),
+          };
+        }),
       updateCreditCard: (id, updates) =>
         set((state) => {
           const existing = state.creditCards.find((c) => c.id === id);
@@ -474,7 +545,11 @@ export const useFinanceStore = create<FinanceStore>()(
               c.id === id ? { ...c, ...updates } : c
             ),
             activityLog: existing
-              ? withLog(state.activityLog, `Edited credit card "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Edited credit card "${existing.name}"`,
+                  { entity: 'creditCard', action: 'edit', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -484,7 +559,11 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             creditCards: state.creditCards.filter((c) => c.id !== id),
             activityLog: existing
-              ? withLog(state.activityLog, `Deleted credit card "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Deleted credit card "${existing.name}"`,
+                  { entity: 'creditCard', action: 'delete', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -497,10 +576,17 @@ export const useFinanceStore = create<FinanceStore>()(
           };
         }),
       addAccount: (a) =>
-        set((state) => ({
-          accounts: [...state.accounts, { ...a, id: `acct-${crypto.randomUUID()}` }],
-          activityLog: withLog(state.activityLog, `Added account "${a.name}" (opening balance ${formatCurrency(a.openingBalance)})`),
-        })),
+        set((state) => {
+          const newAccount = { ...a, id: `acct-${crypto.randomUUID()}` };
+          return {
+            accounts: [...state.accounts, newAccount],
+            activityLog: withLog(
+              state.activityLog,
+              `Added account "${a.name}" (opening balance ${formatCurrency(a.openingBalance)})`,
+              { entity: 'account', action: 'add', id: newAccount.id }
+            ),
+          };
+        }),
       updateAccount: (id, updates) =>
         set((state) => {
           const existing = state.accounts.find((a) => a.id === id);
@@ -509,7 +595,11 @@ export const useFinanceStore = create<FinanceStore>()(
               a.id === id ? { ...a, ...updates } : a
             ),
             activityLog: existing
-              ? withLog(state.activityLog, `Edited account "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Edited account "${existing.name}"`,
+                  { entity: 'account', action: 'edit', id, before: existing }
+                )
               : state.activityLog,
           };
         }),
@@ -519,8 +609,85 @@ export const useFinanceStore = create<FinanceStore>()(
           return {
             accounts: state.accounts.filter((a) => a.id !== id),
             activityLog: existing
-              ? withLog(state.activityLog, `Deleted account "${existing.name}"`)
+              ? withLog(
+                  state.activityLog,
+                  `Deleted account "${existing.name}"`,
+                  { entity: 'account', action: 'delete', id, before: existing }
+                )
               : state.activityLog,
+          };
+        }),
+
+      undoActivity: (entryId) =>
+        set((state) => {
+          const entry = state.activityLog.find((e) => e.id === entryId);
+          if (!entry?.undo || entry.undone) return {};
+          const { entity, action, id, before } = entry.undo;
+          const patch: Partial<FinanceStore> = {};
+
+          if (entity === 'transaction') {
+            if (action === 'add') {
+              const existing = state.transactions.find((t) => t.id === id);
+              patch.transactions = state.transactions.filter((t) => t.id !== id);
+              patch.creditCards = existing ? applyTransactionToCreditCards(state.creditCards, existing, -1) : state.creditCards;
+            } else if (before) {
+              const snapshot = before as Transaction;
+              if (action === 'delete') {
+                patch.transactions = [snapshot, ...state.transactions];
+                patch.creditCards = applyTransactionToCreditCards(state.creditCards, snapshot, 1);
+              } else {
+                const current = state.transactions.find((t) => t.id === id);
+                let creditCards = current ? applyTransactionToCreditCards(state.creditCards, current, -1) : state.creditCards;
+                creditCards = applyTransactionToCreditCards(creditCards, snapshot, 1);
+                patch.transactions = state.transactions.map((t) => (t.id === id ? snapshot : t));
+                patch.creditCards = creditCards;
+              }
+            }
+          } else if (entity === 'subscription') {
+            if (action === 'add') patch.subscriptions = state.subscriptions.filter((s) => s.id !== id);
+            else if (before) {
+              const snapshot = before as Subscription;
+              patch.subscriptions = action === 'delete'
+                ? [...state.subscriptions, snapshot]
+                : state.subscriptions.map((s) => (s.id === id ? snapshot : s));
+            }
+          } else if (entity === 'savingsGoal') {
+            if (action === 'add') patch.savingsGoals = state.savingsGoals.filter((g) => g.id !== id);
+            else if (before) {
+              const snapshot = before as SavingsGoal;
+              patch.savingsGoals = action === 'delete'
+                ? [...state.savingsGoals, snapshot]
+                : state.savingsGoals.map((g) => (g.id === id ? snapshot : g));
+            }
+          } else if (entity === 'investment') {
+            if (action === 'add') patch.investments = state.investments.filter((inv) => inv.id !== id);
+            else if (before) {
+              const snapshot = before as Investment;
+              patch.investments = action === 'delete'
+                ? [...state.investments, snapshot]
+                : state.investments.map((inv) => (inv.id === id ? snapshot : inv));
+            }
+          } else if (entity === 'creditCard') {
+            if (action === 'add') patch.creditCards = state.creditCards.filter((c) => c.id !== id);
+            else if (before) {
+              const snapshot = before as CreditCard;
+              patch.creditCards = action === 'delete'
+                ? [...state.creditCards, snapshot]
+                : state.creditCards.map((c) => (c.id === id ? snapshot : c));
+            }
+          } else if (entity === 'account') {
+            if (action === 'add') patch.accounts = state.accounts.filter((a) => a.id !== id);
+            else if (before) {
+              const snapshot = before as Account;
+              patch.accounts = action === 'delete'
+                ? [...state.accounts, snapshot]
+                : state.accounts.map((a) => (a.id === id ? snapshot : a));
+            }
+          }
+
+          return {
+            ...patch,
+            activityLog: state.activityLog.map((e) => (e.id === entryId ? { ...e, undone: true } : e)),
           };
         }),
 

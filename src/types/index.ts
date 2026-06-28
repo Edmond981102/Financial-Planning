@@ -155,10 +155,21 @@ export interface NetWorthSnapshot {
   netWorth: number;
 }
 
+export type UndoableEntity = 'transaction' | 'subscription' | 'savingsGoal' | 'investment' | 'creditCard' | 'account';
+
+export interface ActivityLogUndo {
+  entity: UndoableEntity;
+  action: 'add' | 'edit' | 'delete';
+  id: string; // id of the affected entity
+  before?: Transaction | Subscription | SavingsGoal | Investment | CreditCard | Account; // snapshot prior to the action; absent for 'add'
+}
+
 export interface ActivityLogEntry {
   id: string;
   timestamp: string; // ISO datetime
   message: string;
+  undo?: ActivityLogUndo;
+  undone?: boolean;
 }
 
 // Records what a profile value (e.g. monthlyIncome, retirementAnnualExpenses) was before it last
