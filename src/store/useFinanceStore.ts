@@ -230,6 +230,7 @@ export interface SyncableState {
   netWorthHistory: { date: string; value: number }[];
   incomeHistory: ProfileValueHistoryEntry[];
   expensesHistory: ProfileValueHistoryEntry[];
+  onboardingComplete: boolean;
 }
 
 export const useFinanceStore = create<FinanceStore>()(
@@ -743,6 +744,7 @@ export const useFinanceStore = create<FinanceStore>()(
         netWorthHistory: data.netWorthHistory ?? [],
         incomeHistory: data.incomeHistory ?? [],
         expensesHistory: data.expensesHistory ?? [],
+        onboardingComplete: data.onboardingComplete ?? false,
       })),
       getSyncableState: () => {
         const s = get();
@@ -764,6 +766,7 @@ export const useFinanceStore = create<FinanceStore>()(
           netWorthHistory: s.netWorthHistory,
           incomeHistory: s.incomeHistory,
           expensesHistory: s.expensesHistory,
+          onboardingComplete: s.onboardingComplete,
         };
       },
     }),
