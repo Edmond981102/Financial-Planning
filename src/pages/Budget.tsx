@@ -4,7 +4,7 @@ import { Edit2, Check, X, TrendingUp, AlertTriangle, CheckCircle, Plus, Trash2, 
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import { getMonthExpenses, getMonthSavings, getMonthTransactions, getCategoryTotals } from '../utils/calculations';
-import { format, subMonths } from 'date-fns';
+import { format, subMonths, parseISO } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 import CurrencyToggle from '../components/common/CurrencyToggle';
 import InfoTooltip from '../components/common/InfoTooltip';
@@ -51,11 +51,14 @@ const DEFAULT_BUDGET_CATEGORIES: Record<string, number> = {
 export default function Budget() {
   const {
     transactions, budgetTemplate, categoryAllocations, budgetHistory, updateBudgetTemplate,
-    myrToSgdRate, setMyrToSgdRate,
+    myrToSgdRate, setMyrToSgdRate, addTransaction,
   } = useFinanceStore();
   const currentRealMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(currentRealMonth);
   const [editMode, setEditMode] = useState(false);
+  const [addingToCategory, setAddingToCategory] = useState<string | null>(null);
+  const [addAmount, setAddAmount] = useState('');
+  const [addNote, setAddNote] = useState('');
   const [draftCategories, setDraftCategories] = useState<{ id: string; name: string; amount: string; currency: 'SGD' | 'MYR'; allocation: AllocationBucket }[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAmount, setNewCatAmount] = useState('');
@@ -212,6 +215,25 @@ export default function Budget() {
 
   // A bucket only appears once a budget category is actually tagged to it.
   const visibleBuckets = knownBuckets.filter((b) => (categoryCountByBucket[b] || 0) > 0);
+
+  function applyManualEntry(category: string) {
+    const amount = parseFloat(addAmount);
+    if (!amount || amount <= 0) { setAddingToCategory(null); return; }
+    const bucket = categoryAllocations[category] ?? 'expenses';
+    const txDate = selectedMonth === currentRealMonth
+      ? format(new Date(), 'yyyy-MM-dd')
+      : format(parseISO(selectedMonth + '-01'), 'yyyy-MM-dd');
+    addTransaction({
+      date: txDate,
+      amount,
+      category,
+      description: addNote.trim() || 'Manual entry',
+      type: bucket === 'savings' ? 'saving' : 'expense',
+    });
+    setAddingToCategory(null);
+    setAddAmount('');
+    setAddNote('');
+  }
 
   const lastThreeMonths = Array.from({ length: 4 }, (_, i) => {
     const d = subMonths(new Date(), i);
@@ -437,6 +459,7 @@ export default function Budget() {
                 const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
                 const over = actual > budget;
                 const remaining = budget - actual;
+                const isAddingHere = addingToCategory === category;
 
                 return (
                   <div key={category} className="space-y-1.5">
@@ -454,16 +477,52 @@ export default function Budget() {
                           {bucketLabel(categoryAllocations[category] ?? 'expenses')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 flex-wrap justify-end">
+                      <div className="flex items-center gap-3 flex-wrap justify-end">
                         <span className="text-slate-500 text-xs">budget: {formatCurrency(budget)}</span>
-                        <span className={`font-medium text-xs w-20 text-right ${over ? 'text-rose-400' : 'text-slate-300'}`}>
+                        <span className={`font-medium text-xs ${over ? 'text-rose-400' : 'text-slate-300'}`}>
                           {formatCurrency(actual)} spent
                         </span>
                         <span className={`text-xs w-24 text-right ${remaining < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                           {remaining < 0 ? `-${formatCurrency(Math.abs(remaining))}` : `${formatCurrency(remaining)} left`}
                         </span>
+                        <button
+                          onClick={() => {
+                            setAddingToCategory(isAddingHere ? null : category);
+                            setAddAmount('');
+                            setAddNote('');
+                          }}
+                          title="Add amount to spent"
+                          className={`p-1 rounded-lg transition-colors ${isAddingHere ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-slate-700 text-slate-600 hover:text-emerald-400'}`}
+                        >
+                          <Plus size={13} />
+                        </button>
                       </div>
                     </div>
+                    {isAddingHere && (
+                      <div className="flex items-center gap-2 flex-wrap pt-1 pb-0.5 pl-5">
+                        <MoneyInput
+                          className="input w-28 py-1 text-sm"
+                          placeholder="Amount"
+                          value={addAmount}
+                          onChange={setAddAmount}
+                          autoFocus
+                        />
+                        <input
+                          type="text"
+                          className="input flex-1 min-w-28 py-1 text-sm"
+                          placeholder="Note (optional)"
+                          value={addNote}
+                          onChange={e => setAddNote(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') applyManualEntry(category); if (e.key === 'Escape') setAddingToCategory(null); }}
+                        />
+                        <button onClick={() => applyManualEntry(category)} className="btn-primary py-1 px-2.5">
+                          <Check size={13} />
+                        </button>
+                        <button onClick={() => setAddingToCategory(null)} className="btn-secondary py-1 px-2.5">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    )}
                     <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
