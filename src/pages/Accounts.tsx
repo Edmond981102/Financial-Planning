@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, X, Check, Landmark, CreditCard as CreditCardIcon, ArrowLeftRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Check, Landmark, CreditCard as CreditCardIcon, ArrowLeftRight, Target } from 'lucide-react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { getAccountBalance, getCreditCardOwed } from '../utils/calculations';
 import { Account, CreditCard } from '../types';
-import { setDate, isBefore, addMonths, differenceInCalendarDays } from 'date-fns';
+import { setDate, isBefore, addMonths, differenceInCalendarDays, format } from 'date-fns';
 import MoneyInput from '../components/common/MoneyInput';
 
 const ACCOUNT_COLORS = [
@@ -32,8 +32,6 @@ function getNextDueDate(dueDay: number): Date {
   return next;
 }
 
-// Statement/due days are a recurring day-of-month (1-31) with no year or
-// month attached, so a plain day picker avoids implying a specific date.
 function ordinal(day: number): string {
   if (day >= 11 && day <= 13) return `${day}th`;
   switch (day % 10) {
@@ -49,6 +47,7 @@ export default function Accounts() {
   const {
     accounts, transactions, addAccount, updateAccount, deleteAccount,
     creditCards, addCreditCard, updateCreditCard, deleteCreditCard,
+    addTransaction,
   } = useFinanceStore();
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -59,6 +58,12 @@ export default function Accounts() {
   const [showAddCard, setShowAddCard] = useState(false);
   const [newCard, setNewCard] = useState({ name: '', limit: '', currentBalance: '', statementDay: '1', dueDay: '15' });
   const [viewingId, setViewingId] = useState<string | null>(null);
+
+  // Reconcile state
+  const [adjustingAccountId, setAdjustingAccountId] = useState<string | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState('');
+  const [adjustingCardId, setAdjustingCardId] = useState<string | null>(null);
+  const [adjustCardTarget, setAdjustCardTarget] = useState('');
 
   const totalBalance = accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
 
@@ -96,6 +101,43 @@ export default function Accounts() {
       addAccount(payload);
     }
     setShowModal(false);
+  }
+
+  function startAdjustAccount(account: Account) {
+    const balance = getAccountBalance(account, transactions);
+    setAdjustingAccountId(account.id);
+    setAdjustTarget(String(balance));
+  }
+
+  function applyAccountAdjust(account: Account) {
+    const actual = parseFloat(adjustTarget);
+    if (isNaN(actual)) { setAdjustingAccountId(null); return; }
+    const current = getAccountBalance(account, transactions);
+    const diff = actual - current;
+    if (Math.abs(diff) >= 0.01) {
+      addTransaction({
+        date: format(new Date(), 'yyyy-MM-dd'),
+        amount: Math.abs(diff),
+        category: 'Other',
+        description: 'Balance adjustment',
+        type: diff > 0 ? 'income' : 'expense',
+        accountId: account.id,
+      });
+    }
+    setAdjustingAccountId(null);
+  }
+
+  function startAdjustCard(card: CreditCard) {
+    setAdjustingCardId(card.id);
+    setAdjustCardTarget(String(card.currentBalance));
+  }
+
+  function applyCardAdjust(card: CreditCard) {
+    const actual = parseFloat(adjustCardTarget);
+    if (!isNaN(actual)) {
+      updateCreditCard(card.id, { currentBalance: actual });
+    }
+    setAdjustingCardId(null);
   }
 
   function startEditCard(card: CreditCard) {
@@ -167,10 +209,14 @@ export default function Accounts() {
         {accounts.map(account => {
           const balance = getAccountBalance(account, transactions);
           const linkedCount = transactions.filter(t => t.accountId === account.id || t.toAccountId === account.id).length;
+          const isAdjusting = adjustingAccountId === account.id;
+          const adjustedActual = parseFloat(adjustTarget);
+          const diff = isAdjusting && !isNaN(adjustedActual) ? adjustedActual - balance : 0;
+
           return (
             <div
               key={account.id}
-              onClick={() => setViewingId(account.id)}
+              onClick={() => !isAdjusting && setViewingId(account.id)}
               className="card space-y-4 hover:border-slate-700 transition-colors cursor-pointer"
             >
               <div className="flex items-start justify-between">
@@ -184,6 +230,13 @@ export default function Accounts() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => isAdjusting ? setAdjustingAccountId(null) : startAdjustAccount(account)}
+                    title="Adjust to actual balance"
+                    className={`p-1.5 rounded-lg transition-colors ${isAdjusting ? 'bg-amber-500/20 text-amber-400' : 'hover:bg-slate-700 text-slate-500 hover:text-amber-400'}`}
+                  >
+                    <Target size={14} />
+                  </button>
                   <button onClick={() => openEdit(account)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-white transition-colors">
                     <Edit2 size={14} />
                   </button>
@@ -196,6 +249,34 @@ export default function Accounts() {
                 <div className={`text-2xl font-bold ${balance >= 0 ? 'text-white' : 'text-rose-400'}`}>{formatCurrency(balance)}</div>
                 <div className="text-xs text-slate-500 mt-0.5">opening balance {formatCurrency(account.openingBalance)}</div>
               </div>
+
+              {isAdjusting && (
+                <div className="border-t border-slate-700 pt-3 space-y-2" onClick={e => e.stopPropagation()}>
+                  <label className="text-xs text-slate-400 font-medium">Set actual balance</label>
+                  <div className="flex items-center gap-2">
+                    <MoneyInput
+                      className="input flex-1"
+                      value={adjustTarget}
+                      onChange={setAdjustTarget}
+                      autoFocus
+                    />
+                    <button onClick={() => applyAccountAdjust(account)} className="btn-primary p-2 shrink-0">
+                      <Check size={14} />
+                    </button>
+                    <button onClick={() => setAdjustingAccountId(null)} className="btn-secondary p-2 shrink-0">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  {!isNaN(adjustedActual) && Math.abs(diff) >= 0.01 && (
+                    <p className={`text-xs ${diff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {diff > 0 ? `+${formatCurrency(diff)} will be recorded as income` : `${formatCurrency(diff)} will be recorded as expense`}
+                    </p>
+                  )}
+                  {!isNaN(adjustedActual) && Math.abs(diff) < 0.01 && (
+                    <p className="text-xs text-slate-500">Already matches — no adjustment needed.</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -224,6 +305,7 @@ export default function Accounts() {
         <div className="space-y-3">
           {creditCards.map((c) => {
             const isEditing = editingCardId === c.id;
+            const isAdjustingCard = adjustingCardId === c.id;
             const owed = getCreditCardOwed(c);
             const usagePercent = c.limit > 0 ? Math.min(100, (owed / c.limit) * 100) : 0;
             const daysUntilDue = differenceInCalendarDays(getNextDueDate(c.dueDay), new Date());
@@ -274,6 +356,42 @@ export default function Accounts() {
               );
             }
 
+            if (isAdjustingCard) {
+              const adjustedAvail = parseFloat(adjustCardTarget);
+              const newOwed = !isNaN(adjustedAvail) ? Math.max(0, c.limit - adjustedAvail) : null;
+              return (
+                <div key={c.id} className="bg-slate-800/60 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.color + '20' }}>
+                      <CreditCardIcon size={16} style={{ color: c.color }} />
+                    </div>
+                    <span className="text-white font-medium flex-1 truncate">{c.name}</span>
+                    <span className="text-xs text-slate-500">limit {formatCurrency(c.limit)}</span>
+                  </div>
+                  <label className="text-xs text-slate-400 font-medium">Set actual available balance</label>
+                  <div className="flex items-center gap-2">
+                    <MoneyInput
+                      className="input flex-1"
+                      value={adjustCardTarget}
+                      onChange={setAdjustCardTarget}
+                      autoFocus
+                    />
+                    <button onClick={() => applyCardAdjust(c)} className="btn-primary p-2 shrink-0">
+                      <Check size={14} />
+                    </button>
+                    <button onClick={() => setAdjustingCardId(null)} className="btn-secondary p-2 shrink-0">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  {newOwed !== null && (
+                    <p className="text-xs text-slate-400">
+                      Spent will update to <span className={newOwed > owed ? 'text-rose-400' : 'text-emerald-400'}>{formatCurrency(newOwed)}</span> of {formatCurrency(c.limit)}
+                    </p>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <div
                 key={c.id}
@@ -302,6 +420,13 @@ export default function Accounts() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => startAdjustCard(c)}
+                    title="Adjust to actual balance"
+                    className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-amber-400 transition-colors"
+                  >
+                    <Target size={14} />
+                  </button>
                   <button onClick={() => startEditCard(c)} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-500 hover:text-white transition-colors">
                     <Edit2 size={14} />
                   </button>
