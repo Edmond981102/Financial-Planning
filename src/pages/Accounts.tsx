@@ -67,10 +67,28 @@ export default function Accounts() {
 
   const totalBalance = accounts.reduce((sum, a) => sum + getAccountBalance(a, transactions), 0);
 
+  const viewingAccount = accounts.find((a) => a.id === viewingId) ?? null;
   const viewingName = [...accounts, ...creditCards].find((a) => a.id === viewingId)?.name;
   const viewingTransactions = transactions
     .filter((t) => t.accountId === viewingId || t.toAccountId === viewingId)
     .sort((a, b) => b.date.localeCompare(a.date));
+
+  // Running balance per row, only for bank accounts (credit card balance is stored directly).
+  const viewingRunningBalances: number[] | null = (() => {
+    if (!viewingAccount) return null;
+    const oldestFirst = [...viewingTransactions].reverse();
+    let bal = viewingAccount.openingBalance;
+    const balances: number[] = [];
+    for (const t of oldestFirst) {
+      if (t.accountId === viewingAccount.id) {
+        bal += t.type === 'income' ? t.amount : -t.amount;
+      } else if (t.type === 'transfer' && t.toAccountId === viewingAccount.id) {
+        bal += t.amount;
+      }
+      balances.push(bal);
+    }
+    return balances.reverse(); // align with newest-first display order
+  })();
 
   function openAdd() {
     setForm(emptyForm);
@@ -537,27 +555,31 @@ export default function Accounts() {
               <p className="text-slate-500 text-sm text-center py-10">No transactions linked to this account yet.</p>
             ) : (
               <div className="space-y-1">
-                {viewingTransactions.map(t => (
-                  <div key={t.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-800 last:border-0">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {t.type === 'transfer' && <ArrowLeftRight size={14} className="text-violet-400 shrink-0" />}
-                      <div className="min-w-0">
-                        <div className="text-sm text-white truncate">{t.description}</div>
-                        <div className="text-xs text-slate-500">{formatDate(t.date)} · {t.category}</div>
+                {viewingTransactions.map((t, i) => {
+                  const isCredit = t.type === 'income' || (t.type === 'transfer' && t.toAccountId === viewingId);
+                  const runningBal = viewingRunningBalances ? viewingRunningBalances[i] : null;
+                  return (
+                    <div key={t.id} className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-800 last:border-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {t.type === 'transfer' && <ArrowLeftRight size={14} className="text-violet-400 shrink-0" />}
+                        <div className="min-w-0">
+                          <div className="text-sm text-white truncate">{t.description}</div>
+                          <div className="text-xs text-slate-500">{formatDate(t.date)} · {t.category}</div>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className={`text-sm font-semibold ${isCredit ? 'text-emerald-400' : 'text-slate-300'}`}>
+                          {isCredit ? '+' : '-'}{formatCurrency(t.amount)}
+                        </div>
+                        {runningBal !== null && (
+                          <div className={`text-xs mt-0.5 ${runningBal < 0 ? 'text-rose-400/70' : 'text-slate-500'}`}>
+                            {formatCurrency(runningBal)}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <span
-                      className={`text-sm font-semibold shrink-0 ${
-                        t.type === 'income' || (t.type === 'transfer' && t.toAccountId === viewingId)
-                          ? 'text-emerald-400'
-                          : 'text-slate-300'
-                      }`}
-                    >
-                      {t.type === 'income' || (t.type === 'transfer' && t.toAccountId === viewingId) ? '+' : '-'}
-                      {formatCurrency(t.amount)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
