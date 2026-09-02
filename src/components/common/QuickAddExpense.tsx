@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, X, Zap } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Plus, X, Zap, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import MoneyInput from './MoneyInput';
@@ -9,6 +9,7 @@ const EXPENSE_CATEGORIES = [
   'Shopping', 'Education', 'Travel', 'Utilities', 'Personal Care',
   'Gifts & Donations', 'Subscriptions', 'Other',
 ];
+const INCOME_CATEGORIES = ['Salary', 'Freelance', 'Investment Returns', 'Rental Income', 'Business', 'Bonus', 'Gift', 'Other'];
 
 const TYPE_OPTS = [
   { value: 'expense', label: 'Expense' },
@@ -16,7 +17,21 @@ const TYPE_OPTS = [
   { value: 'income', label: 'Income' },
 ] as const;
 
-const INCOME_CATEGORIES = ['Salary', 'Freelance', 'Investment Returns', 'Rental Income', 'Business', 'Bonus', 'Gift', 'Other'];
+// Hardcoded tap → category mapping (2+ taps only)
+const CATEGORY_TAPS: Record<number, string> = {
+  2: 'Food & Dining',
+  3: 'Subscriptions',
+};
+
+// Hardcoded tap → account name fragment mapping
+const ACCOUNT_TAPS: Record<number, string> = {
+  2: 'DBS Expense',
+  3: 'Citibank Credit',
+};
+
+const TAP_TIMEOUT_MS = 1000;
+
+type TapPhase = 'category' | 'account';
 
 export default function QuickAddExpense() {
   const { addTransaction, budgetTemplate, accounts, creditCards } = useFinanceStore();
@@ -27,6 +42,20 @@ export default function QuickAddExpense() {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [accountId, setAccountId] = useState('');
+
+  // Tap shortcut state
+  const [tapPhase, setTapPhase] = useState<TapPhase | null>(null);
+  const [tapCount, setTapCount] = useState(0);
+  const [tapFlash, setTapFlash] = useState(false);
+  const [tapError, setTapError] = useState('');
+  const [resolvedCategory, setResolvedCategory] = useState('');
+  const [resolvedAccount, setResolvedAccount] = useState('');
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const allLinked = [
+    ...accounts.map(a => ({ id: a.id, name: a.name })),
+    ...creditCards.map(c => ({ id: c.id, name: c.name })),
+  ];
 
   const expenseCategories = Object.keys(budgetTemplate).length > 0 ? Object.keys(budgetTemplate) : EXPENSE_CATEGORIES;
   const categories = type === 'income' ? INCOME_CATEGORIES : expenseCategories;
@@ -39,6 +68,12 @@ export default function QuickAddExpense() {
     setDescription('');
     setDate(format(new Date(), 'yyyy-MM-dd'));
     setAccountId('');
+    setTapPhase(null);
+    setTapCount(0);
+    setTapError('');
+    setResolvedCategory('');
+    setResolvedAccount('');
+    if (tapTimer.current) clearTimeout(tapTimer.current);
     setOpen(true);
   }
 
@@ -56,11 +91,73 @@ export default function QuickAddExpense() {
     setOpen(false);
   }
 
-  const allLinked = [...accounts.map(a => ({ id: a.id, name: a.name })), ...creditCards.map(c => ({ id: c.id, name: c.name }))];
+  // Called when the 1s timeout fires after tapping stops
+  const resolveCategory = useCallback((count: number) => {
+    const mapped = CATEGORY_TAPS[count];
+    if (mapped) {
+      setCategory(mapped);
+      setResolvedCategory(mapped);
+      setTapError('');
+      setTapCount(0);
+      setTapPhase('account'); // advance to round 2
+    } else {
+      setTapError(`${count} taps not assigned — try again`);
+      setTapCount(0);
+    }
+  }, []);
+
+  const resolveAccount = useCallback((count: number, linked: { id: string; name: string }[]) => {
+    const fragment = ACCOUNT_TAPS[count];
+    if (fragment) {
+      const match = linked.find(a => a.name.toLowerCase().includes(fragment.toLowerCase()));
+      if (match) {
+        setAccountId(match.id);
+        setResolvedAccount(match.name);
+        setTapError('');
+        setTapCount(0);
+        setTapPhase(null); // done
+      } else {
+        setTapError(`"${fragment}" not found in your accounts`);
+        setTapCount(0);
+      }
+    } else {
+      setTapError(`${count} taps not assigned — try again`);
+      setTapCount(0);
+    }
+  }, []);
+
+  function handleTap() {
+    if (!tapPhase) return;
+    setTapFlash(true);
+    setTimeout(() => setTapFlash(false), 120);
+    setTapError('');
+
+    const next = tapCount + 1;
+    setTapCount(next);
+
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => {
+      if (tapPhase === 'category') resolveCategory(next);
+      else resolveAccount(next, allLinked);
+    }, TAP_TIMEOUT_MS);
+  }
+
+  // Start tap mode when amount is entered
+  function handleAmountChange(val: string) {
+    setAmount(val);
+    if (val && parseFloat(val) > 0 && tapPhase === null && !resolvedCategory) {
+      setTapPhase('category');
+      setTapCount(0);
+      setTapError('');
+    }
+  }
+
+  const tapHint = tapPhase === 'category'
+    ? { label: 'Tap for category', hint: '2× Food & Dining · 3× Subscriptions' }
+    : { label: 'Tap for account', hint: '2× DBS Expense · 3× Citibank Credit' };
 
   return (
     <>
-      {/* Floating action button */}
       <button
         onClick={openFresh}
         title="Quick add expense"
@@ -69,7 +166,6 @@ export default function QuickAddExpense() {
         <Plus size={24} className="text-white" />
       </button>
 
-      {/* Modal */}
       {open && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50">
           <div className="bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-2xl w-full max-w-sm mx-0 sm:mx-4 p-5 shadow-2xl">
@@ -97,35 +193,85 @@ export default function QuickAddExpense() {
             </div>
 
             <div className="space-y-3">
-              {/* Amount — auto-focused, most important field */}
+              {/* Amount */}
               <MoneyInput
                 className="input text-2xl font-bold text-center h-14"
                 placeholder="0.00"
                 value={amount}
-                onChange={setAmount}
+                onChange={handleAmountChange}
                 autoFocus
               />
 
-              {/* Category */}
+              {/* Tap zone — shown when amount is set */}
+              {amount && parseFloat(amount) > 0 && (
+                <div className="space-y-2">
+                  {/* Resolved pills */}
+                  <div className="flex gap-2">
+                    {resolvedCategory ? (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium flex-1">
+                        <CheckCircle2 size={12} /> {resolvedCategory}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-500 text-xs flex-1">Category</div>
+                    )}
+                    {resolvedAccount ? (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium flex-1">
+                        <CheckCircle2 size={12} /> {resolvedAccount}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-500 text-xs flex-1">Account</div>
+                    )}
+                  </div>
+
+                  {/* Active tap zone */}
+                  {tapPhase && (
+                    <button
+                      onClick={handleTap}
+                      className={`w-full rounded-xl border-2 border-dashed py-5 flex flex-col items-center gap-2 transition-all select-none active:scale-95 ${
+                        tapFlash
+                          ? 'border-emerald-400 bg-emerald-500/20'
+                          : 'border-slate-600 bg-slate-800/50 hover:border-slate-500'
+                      }`}
+                    >
+                      <span className="text-xs font-semibold text-white">{tapHint.label}</span>
+                      {/* Tap dots */}
+                      <div className="flex gap-1.5 h-3 items-center">
+                        {tapCount >= 2 && Array.from({ length: tapCount }).map((_, i) => (
+                          <span key={i} className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                        ))}
+                        {tapCount === 0 && <span className="text-slate-500 text-xs">tap here</span>}
+                        {tapCount === 1 && <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />}
+                      </div>
+                      <span className="text-xs text-slate-500">{tapHint.hint}</span>
+                    </button>
+                  )}
+
+                  {tapError && (
+                    <p className="text-xs text-amber-400 text-center">{tapError}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Category dropdown (fallback / override) */}
               <select
-                className="input"
+                className="input text-sm"
                 value={effectiveCategory}
-                onChange={e => setCategory(e.target.value)}
+                onChange={e => { setCategory(e.target.value); setResolvedCategory(e.target.value); }}
               >
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
-              {/* Description — optional */}
+              {/* Description */}
               <input
                 type="text"
                 className="input"
-                placeholder={`Note (optional, defaults to "${effectiveCategory}")`}
+                placeholder={`Note (optional)`}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') submit(); }}
               />
 
-              {/* Date + Account on one line */}
+              {/* Date + Account */}
               <div className="flex gap-2">
                 <input
                   type="date"
@@ -137,7 +283,7 @@ export default function QuickAddExpense() {
                   <select
                     className="input flex-1"
                     value={accountId}
-                    onChange={e => setAccountId(e.target.value)}
+                    onChange={e => { setAccountId(e.target.value); setResolvedAccount(allLinked.find(a => a.id === e.target.value)?.name || ''); }}
                   >
                     <option value="">No account</option>
                     {allLinked.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
