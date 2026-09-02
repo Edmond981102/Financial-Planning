@@ -17,6 +17,7 @@ import Planning from './pages/Planning';
 import Insights from './pages/Insights';
 import Accounts from './pages/Accounts';
 import ActivityLog from './pages/ActivityLog';
+import QuickAddExpense from './components/common/QuickAddExpense';
 
 const PAGES: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
@@ -145,6 +146,7 @@ export default function App() {
           <ProfileSetupBanner />
           <PageComponent />
         </main>
+        <QuickAddExpense />
       </div>
     </div>
   );
